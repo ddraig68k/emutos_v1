@@ -95,13 +95,13 @@ static void init_system_vars(void)
 {
     KDEBUG(("init_system_vars()\n"));
     /* Screen address */
-    v_bas_ad = 0;
+    v_bas_ad = CONF_VRAM_ADDRESS;
     /* Fake 640x400x2 video mode (ST high) */
     sshiftmod = 2;
 
     /* Line A vars */
     /* Number of bitplanes */
-    v_planes = 1;
+    v_planes = 16;
     /* Bytes per scan-line */
     BYTES_LIN = 80;
     /* Vertical resolution */

@@ -2290,7 +2290,7 @@
 # endif
 #endif
 
-#if !CONF_WITH_VIDEL
+#if !CONF_WITH_VIDEL && !CONF_WITH_DDRAIG_VGA
 # if CONF_WITH_VDI_16BIT
 #  error CONF_WITH_VDI_16BIT requires CONF_WITH_VIDEL
 # endif

@@ -839,7 +839,7 @@ void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
     *hz_rez = 640;
     *vt_rez = 240;
 #elif defined(CONF_WITH_DDRAIGVGA_CONSOLE)
-    *planes = 1;
+    *planes = 16;
     *hz_rez = 640;
     *vt_rez = 480;
 #else
