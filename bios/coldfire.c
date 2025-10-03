@@ -14,7 +14,7 @@
 #error This file must only be compiled on ColdFire targets
 #endif
 
-/* #define ENABLE_KDEBUG */
+/* #define ENABLE_KDEBUG  */
 #define DEBUG_FLEXCAN 0
 
 #include "emutos.h"

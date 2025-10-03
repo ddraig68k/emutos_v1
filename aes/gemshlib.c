@@ -17,7 +17,7 @@
 *       -------------------------------------------------------------
 */
 
-#define ENABLE_KDEBUG 
+/* #define ENABLE_KDEBUG  */
 
 #include "emutos.h"
 #include "asm.h"
@@ -230,11 +230,16 @@ void sh_tographic(void)
     disable_interrupts();
     retake();
     enable_interrupts();
-
+    KDEBUG(("Retook vectors\n"));
+    KDEBUG(("Calling gsx_graphic\n"));
     gsx_graphic(TRUE);      /* convert to graphic */
+    KDEBUG(("Calling gsx_sclip\n"));
     gsx_sclip(&gl_rscreen); /* set initial clip rectangle */
+    KDEBUG(("Calling gsx_malloc\n"));
     gsx_malloc();           /* allocate screen space */
-    ratinit();              /* start up the mouse */
+    KDEBUG(("Calling ratinit\n"));
+    //ratinit();              /* start up the mouse */
+    KDEBUG(("Calling set_mouse_to_hourglass\n"));
     set_mouse_to_hourglass();/* put mouse to hourglass */
 }
 
@@ -715,7 +720,7 @@ void sh_main(BOOL isauto, BOOL isgem)
         if (gl_shgem)
         {
             wm_init();                  /* re-init windows, without resetting colours */
-            ratinit();
+            //ratinit();
             sh_draw(D.s_cmd, TRUE);     /* clear the screen */
         }
 

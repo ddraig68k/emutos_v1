@@ -19,7 +19,7 @@
 *       -------------------------------------------------------------
 */
 
-#define ENABLE_KDEBUG 
+/* #define ENABLE_KDEBUG  */
 
 #include "emutos.h"
 #include "obdefs.h"
@@ -58,6 +58,8 @@
 
 #include "string.h"
 #include "tosvars.h"
+
+#include "ddraig.h"
 
 /* Prototypes: */
 void accdesk_start(void) NORETURN;  /* called only from gemstart.S */
@@ -769,6 +771,11 @@ void gem_main(void)
      */
     dos_conws("\033f\033E");    /* cursor off, clear screen */
 
+#if defined(MACHINE_DDRAIG68K)
+    ddraig_setrez(0, 0);
+#endif
+
+
     /* read in first part of emudesk.inf */
     if (bootflags & BOOTFLAG_SKIP_AUTO_ACC)
         n = 0;
@@ -790,7 +797,7 @@ void gem_main(void)
             initialise_palette_registers(gl_nextrez-2, 0);
             break;
 #endif
-#if CONF_WITH_VIDEL || defined(MACHINE_AMIGA)
+#if CONF_WITH_VIDEL || defined(MACHINE_AMIGA) || defined(MACHINE_DDRAIG68K)
         case 2:                     /* Falcon display */
             Setscreen(0L, 0L, FALCON_REZ, gl_nextrez);
             /* note: no need to initialise the palette regs

@@ -10,7 +10,7 @@
  * option any later version.  See doc/license.txt for details.
  */
 
-#define ENABLE_KDEBUG 
+/* #define ENABLE_KDEBUG  */
 /* #define DEBUG_REGISTER_WRITES */
 
 #include "emutos.h"

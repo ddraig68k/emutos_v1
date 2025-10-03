@@ -11,7 +11,7 @@
  * option any later version.  See doc/license.txt for details.
  */
 
-/* #define ENABLE_KDEBUG */
+/* #define ENABLE_KDEBUG  */
 #define DBG_BALLOC 0
 
 #include "emutos.h"

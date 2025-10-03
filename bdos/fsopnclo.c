@@ -44,7 +44,7 @@
 **                                      for 0 return (indicating BDOS level error).
 */
 
-/* #define ENABLE_KDEBUG */
+/* #define ENABLE_KDEBUG  */
 
 #include "emutos.h"
 #include "asm.h"

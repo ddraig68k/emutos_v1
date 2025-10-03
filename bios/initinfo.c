@@ -17,7 +17,7 @@
  * Well, this can be made nicer later, if we have much time... :-)
  */
 
-#define ENABLE_KDEBUG 
+/* #define ENABLE_KDEBUG  */
 
 #include "emutos.h"
 #include "nls.h"

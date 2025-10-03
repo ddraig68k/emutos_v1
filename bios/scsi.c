@@ -34,7 +34,7 @@
  * task, especially for Falcon SCSI.
  */
 
-#define ENABLE_KDEBUG 
+/* #define ENABLE_KDEBUG  */
 
 #include "emutos.h"
 #include "scsi.h"

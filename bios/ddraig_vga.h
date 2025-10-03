@@ -106,8 +106,4 @@ void drvga_scroll_up(void);
 void drvga_scroll_down(void);
 void ddraigvga_screen_init(void);
 
-void ddraig_setrez(WORD rez, WORD videlmode);
-WORD ddraig_setcolor(WORD colorNum, WORD color);
-WORD ddraig_vgetmode(void);
-
 #endif
