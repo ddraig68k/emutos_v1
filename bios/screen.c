@@ -1174,6 +1174,8 @@ WORD setscreen(UBYTE *logLoc, const UBYTE *physLoc, WORD rez, WORD videlmode)
 
 #ifdef MACHINE_AMIGA
     amiga_setrez(rez, videlmode);
+#elif MACHINE_DDRAIG68K
+    ddraig_setrez(rez, videlmode);
 #elif CONF_WITH_ATARI_VIDEO
     atari_setrez(rez, videlmode);
 #endif

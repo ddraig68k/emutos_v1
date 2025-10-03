@@ -102,10 +102,6 @@
         .extern _kcl_hook
         .extern _int_ikbd_duart
 
-#ifdef CONF_WITH_DDRAIGVGA_CONSOLE
-        .extern  _ddraigvga_base
-#endif
-
         .text
 
 /* basically initialize the 62 exception vectors. */
@@ -498,10 +494,10 @@ vbl_end:
         addq.w  #1,_vblsem.w
 #endif
 
-#ifdef CONF_WITH_DDRAIGVGA_CONSOLE
-        # Clear the gfxvga VBL interrupt (write status register)
-        move.w #4,_ddraigvga_base
-#endif
+#if MACHINE_DDRAIG68K
+        // Clear the gfxvga VBL interrupt (write status register)
+        move.w #4,0xf7f500
+#endif        
 
 #if CONF_WITH_ATARI_VIDEO || CONF_WITH_VBL_RTE
         rte

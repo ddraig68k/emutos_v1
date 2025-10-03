@@ -1,6 +1,6 @@
 #include "config.h"
 
-/* #define ENABLE_KDEBUG */
+#define ENABLE_KDEBUG 
 
 #if defined(CONF_WITH_DDRAIGVGA_CONSOLE)
 
@@ -16,8 +16,11 @@
 
 // Hard codeed for now, should be detected
 uint32_t ddraigvga_base = 0xF7F500;
-
 uint16_t ddraigvga_screenbuf[DRVGA_TEXTBUF_SIZE];
+
+UWORD ddraig_screen_width;
+UWORD ddraig_screen_height;
+
 
 void drvga_write_control_reg(uint16_t data)
 {
@@ -95,7 +98,7 @@ static void init_system_vars(void)
 {
     KDEBUG(("init_system_vars()\n"));
     /* Screen address */
-    v_bas_ad = CONF_VRAM_ADDRESS;
+    v_bas_ad = (UBYTE *)CONF_VRAM_ADDRESS;
     /* Fake 640x400x2 video mode (ST high) */
     sshiftmod = 2;
 
@@ -128,6 +131,35 @@ void ddraigvga_screen_init(void)
 
 }
 
+static void ddraig_set_videomode(UWORD width, UWORD height)
+{
+    KDEBUG(("ddraig_set_videomode(%d, %d)\n", width, height));
+    drvga_write_control_reg(DISPMODE_BITMAPHIRES);
+}
+
+
+void ddraig_setrez(WORD rez, WORD videlmode)
+{
+    KDEBUG(("ddraig_setrez(%d, 0x%04x)\n", rez, videlmode));
+
+    /* Currently, we only support true colour */
+    if ((videlmode & VIDEL_BPPMASK) != VIDEL_TRUECOLOR)
+        return;
+
+    // Only one video mode support for now
+    ddraig_set_videomode(640, 480);
+}
+
+WORD ddraig_vgetmode(void)
+{
+    KDEBUG(("ddraig_vgetmode()\n"));
+
+    WORD mode = VIDEL_TRUECOLOR;
+    mode |= VIDEL_80COL;
+    mode |= VIDEL_VGA;
+
+    return mode;
+}
 
 
 #endif

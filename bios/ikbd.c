@@ -22,7 +22,7 @@
  * - KEYTBL.TBL config with _AKP cookie (tos 5.00 and later)
  */
 
-/* #define ENABLE_KDEBUG */
+#define ENABLE_KDEBUG 
 
 #include "emutos.h"
 #include "country.h"

@@ -1,7 +1,7 @@
 
 #include "config.h"
 
-/* #define ENABLE_KDEBUG */
+/* #define ENABLE_KDEBUG  */
 
 #if defined(CONF_WITH_DDRAIGVGA_CONSOLE)
 

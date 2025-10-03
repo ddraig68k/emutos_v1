@@ -19,7 +19,7 @@
 *       -------------------------------------------------------------
 */
 
-/* #define ENABLE_KDEBUG */
+#define ENABLE_KDEBUG 
 
 #include "emutos.h"
 #include "obdefs.h"
@@ -697,7 +697,9 @@ void run_accs_and_desktop(void)
     takeerr();
     enable_interrupts();
 
+    KDEBUG(("About to set graphic mode\n"));
     sh_tographic();                 /* go into graphic mode */
+    KDEBUG(("Graphic mode set\n"));
 
     /* take the tick interrupt */
     disable_interrupts();
@@ -728,14 +730,19 @@ void run_accs_and_desktop(void)
     }
 #endif
 
+    KDEBUG(("Initialising window vars\n"));
     wm_start();                     /* initialise window vars */
+    KDEBUG(("Startup gem libs\n"));
     fs_start();                     /* startup gem libs */
     build_root_path(D.s_cdir, 'A'+dos_gdrv());  /* root of current drive */
+    KDEBUG(("Process emudef.inf\n"));
     isgem = process_inf2(&isauto);  /* process emudesk.inf part 2 */
 
     dsptch();                       /* off we go !!! */
     wait_for_accs(AP_MESAG);        /* wait until DAs have initialised */
+    KDEBUG(("DAs have initialised\n"));
 
+    KDEBUG(("Starting main shell loop\n"));
     sh_main(isauto, isgem);         /* main shell loop */
 
     free_accs(num_accs);            /* free DA memory */
