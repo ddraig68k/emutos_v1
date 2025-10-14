@@ -1140,6 +1140,8 @@ WORD setscreen(UBYTE *logLoc, const UBYTE *physLoc, WORD rez, WORD videlmode)
 {
     WORD oldmode = 0;
 
+    KDEBUG(("setscreen() called\n"));
+
     if ((LONG)logLoc > 0) {
         v_bas_ad = logLoc;
         KDEBUG(("v_bas_ad = %p\n", v_bas_ad));
@@ -1150,11 +1152,13 @@ WORD setscreen(UBYTE *logLoc, const UBYTE *physLoc, WORD rez, WORD videlmode)
 
     /* forbid res changes if Line A variables were 'hacked' or 'rez' is -1 */
     if (rez_was_hacked || (rez == -1)) {
+        KDEBUG(("setscreen: rez was hacked\n"));
         return 0;
     }
 
     /* return error for requests for invalid resolutions */
     if ((rez < MIN_REZ) || (rez > MAX_REZ)) {
+        KDEBUG(("setscreen: rez invalid %d\n", rez));
         return -1;
     }
 

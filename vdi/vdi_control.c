@@ -501,7 +501,7 @@ void vdi_v_opnwk(Vwk * vwk)
     Vwk **p;
     WORD newrez;
 
-    KDEBUG(("vdi_v_opnwk: called\n"))
+    KDEBUG(("vdi_v_opnwk: called\n"));
     /*;
      * Programs can request a video mode switch by passing the desired
      * mode + 2 in INTIN[0].
@@ -560,7 +560,7 @@ void vdi_v_opnwk(Vwk * vwk)
         vwk->ext = &phys_work_ext;  /* workstation extension */
 #endif
 
-    KDEBUG(("vdi_v_opnwk: calling init_wk\n"))
+    KDEBUG(("vdi_v_opnwk: calling init_wk\n"));
     init_wk(vwk);
 
     timer_init();
