@@ -39,7 +39,7 @@
 #include "vectors.h"
 #include "xbios.h"
 
-#define DBG_XBIOS        0
+#define DBG_XBIOS        1
 
 /*
  * xbios_0 - (initmous) Initialize mouse packet handler

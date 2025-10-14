@@ -1185,6 +1185,8 @@ WORD setscreen(UBYTE *logLoc, const UBYTE *physLoc, WORD rez, WORD videlmode)
     /* Wait for the end of display to avoid the plane-shift bug on ST */
     vsync();
 
+    KDEBUG(("setscreen: rez = %d videomode = %d\n", rez, videlmode));
+
 #ifdef MACHINE_AMIGA
     amiga_setrez(rez, videlmode);
 #elif MACHINE_DDRAIG68K

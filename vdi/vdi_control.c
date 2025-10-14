@@ -9,6 +9,8 @@
  * option any later version.  See doc/license.txt for details.
  */
 
+ #define ENABLE_KDEBUG 1
+
 #include "emutos.h"
 #include "lineavars.h"
 #include "vdi_defs.h"
@@ -499,7 +501,8 @@ void vdi_v_opnwk(Vwk * vwk)
     Vwk **p;
     WORD newrez;
 
-    /*
+    KDEBUG(("vdi_v_opnwk: called\n"))
+    /*;
      * Programs can request a video mode switch by passing the desired
      * mode + 2 in INTIN[0].
      */
@@ -557,6 +560,7 @@ void vdi_v_opnwk(Vwk * vwk)
         vwk->ext = &phys_work_ext;  /* workstation extension */
 #endif
 
+    KDEBUG(("vdi_v_opnwk: calling init_wk\n"))
     init_wk(vwk);
 
     timer_init();
