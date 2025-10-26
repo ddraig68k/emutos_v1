@@ -389,7 +389,7 @@ static BOOL device_mouse_configure(void)
         return FALSE;
     }
 
-    if (vt_send_device_cmd(VT82C42_MS, 10) != 0xFA) {
+    if (vt_send_device_cmd(VT82C42_MS, 20) != 0xFA) {
         return FALSE;
     }
 
@@ -538,121 +538,289 @@ UBYTE vt8242_init(void)
     return 1;
 }
 
-void vt_process_mouse(int8_t *process)
-{
-    UBYTE status = (UBYTE)process[0];
-    uint8_t xoverflow;
-    uint8_t yoverflow;
-
-    mouse_packet[0] = MOUSE_REL_POS_REPORT;
-    if (status & 0x01)
-        mouse_packet[0] |= LEFT_BUTTON_DOWN;
-    if (status & 0x02)
-        mouse_packet[0] |= RIGHT_BUTTON_DOWN;
-    // Mouse positions
-    mouse_packet[1] = process[1];
-    mouse_packet[2] = -process[2];
-
-        /* Overflow handling */
-    xoverflow = (process[0] >> 6) & 1;
-    yoverflow = (process[0] >> 7) & 1;
-
-    if (xoverflow || yoverflow)
-    {
-        KDEBUG(("Packet0: 0x%02X Mouse overflow x=%d,y=%d\n\r", process[0], xoverflow, yoverflow));
-        mouse_packet[1] = 0;
-        mouse_packet[2] = 0;
-    }
-    //KDEBUG(("Mouse: X=%d Y=%d B=%d\n", (int)mouse_packet[1], (int)mouse_packet[2], mouse_packet[0] & 0x07));
-
-    call_mousevec(mouse_packet);
-}
-
 void vt_handle_mouse(UBYTE data)
 {
-    static UBYTE mouse_cycle = 0;
-    static UBYTE mouse_bytes[3] = { 0 };
+    static UBYTE pktctr = 0;
+    static UBYTE pkt[6] = {0};
 
-    switch (mouse_cycle)
-    {
-        case 0:
-            // FIrst byte should have bit 3 set (sync)
-            if (!(data & 0x08))
-                return;
+    /* Synchronise the mouse handling */
+    if (pktctr == 0) {
+        /* Check for the start of a new packet */
+        if ((data & 0x08) == 0x08) {
+            /* Bit 3 set - valid start of packet */
+            pkt[pktctr++] = data;
+        } else {
+            /* Invalid start of packet - ignore */
+            KDEBUG(("desync\n"));
+            return;
+        }
+    }
+    else {
+        /* Collect up to 3 bytes of packet data */
+        if (pktctr < 3) {
+            pkt[pktctr++] = data;
+        }
+    }
 
-            mouse_bytes[0] = data;
-            mouse_cycle = 1;
-            break;
-        
-        case 1:
-            mouse_bytes[1] = data;
-            mouse_cycle = 2;
-            break;
+    /* Once 3 bytes have been collected, process the packet - form a new packet to be queued with EmuTOS */
+    if (pktctr == 3) {
+        pkt[3] = 0xF8;                      /* MOUSE_REL_POS_REPORT */
+        pkt[3] |= (pkt[0] & 0x01) << 1;     /* LEFT_BUTTON_DOWN */
+        pkt[3] |= (pkt[0] & 0x02) >> 1;     /* RIGHT_BUTTON_DOWN */
+        pkt[4] = pkt[1];                    /* X rel */
+        pkt[5] = -pkt[2];                   /* Y rel */
 
-        case 2:
-            mouse_bytes[2] = data;
-            mouse_cycle = 0;
-            vt_process_mouse((int8_t *)mouse_bytes);
-            break;
+        /* Overflow handling */
+        if (pkt[0] & 0x40) {
+            /* X overflow */
+            pkt[4] = pkt[0] & 0x10 ? -128 : 127;
+        }
+
+        if (pkt[0] & 0x80) {
+            /* X overflow */
+            pkt[5] = pkt[0] & 0x20 ? -128 : 127;
+        }
+
+        // KDEBUG(("Mouse: X=%i Y=%i B=%1X\n", (SBYTE)pkt[4], (SBYTE)pkt[5], pkt[0] & 0x03));
+
+        call_mousevec((SBYTE *)&pkt[3]);
+
+        /* Reset packet counter */
+        pktctr = 0;
     }
 }
 
-void vt_process_scancode(UBYTE sc)
+void vt_process_scancode(UBYTE code)
 {
-    static UBYTE key_break = 0;
-    static UBYTE key_extended = 0;
-    static UBYTE key_remaining = 0;
+    static enum key_state state = KEY_STATE_DEFAULT;
+    const UBYTE make_code = code & 0x7F;
+    static BOOL is_break_code = FALSE;
+    UBYTE xlat_code = 0;
+    BOOL queue_code = FALSE;
+    BOOL update_leds = FALSE;
+    static BOOL is_escape2 = FALSE;
 
-	UBYTE register chr;
-
-    if (key_remaining > 0)
-    {
-        key_remaining--;
+    /* Ignore code 0 */
+    if (code == 0) {
         return;
     }
-    else if (sc == SCAN_CODE_BREAK)
-        key_break = 1;
-    else if (sc == SCAN_CODE_MODIFIER)
-        key_extended  = 1;
-    else if (sc == SCAN_CODE_PSBRK)
-    {
-        // Pause/Break keys extended sequence, ignore for now
-        key_remaining = 7;
+
+    switch (state) {
+        case KEY_STATE_ESCAPE:
+            if (code == 0xF0) {
+                /* Next code will be a break code */
+                is_break_code = TRUE;
+
+                return;
+            }
+
+            if (code > COMET_VGA_MAX_KEY_CODE) {
+                /* Ignore/consume codes that are out of range */
+                is_break_code = FALSE;
+                /* Should we return to the default state here? */
+
+                return;
+            }
+
+            if (code == 0x12) {
+                /* Enable/disable double escaped code set */
+                is_escape2 = is_break_code ? FALSE : TRUE;
+                is_break_code = FALSE;
+                state = KEY_STATE_DEFAULT;
+
+                return;
+            }
+
+            /* Look up translated code ... */
+            xlat_code = is_escape2 ? ps2_extended2_scancode_map[make_code] : ps2_extended_scancode_map[make_code];
+
+            if (xlat_code == 0) {
+                /* Ignore/consume this code */
+                is_break_code = FALSE;
+                state = KEY_STATE_DEFAULT;
+
+                return;
+            }
+
+            if ((SBYTE)xlat_code != -1) {
+                /* This code will be queued */
+                queue_code = TRUE;
+                state = KEY_STATE_DEFAULT;
+            }
+
+            break;
+
+        case KEY_STATE_UNTIL_BREAK:
+            if (code == 0xF0) {
+                /* Next code will be a break code */
+                is_break_code = TRUE;
+                state = KEY_STATE_DEFAULT;
+            }
+
+            break;
+
+        case KEY_STATE_PAUSE_BREAK:
+            if (code == 0xF0) {
+                /* Next code will be a break code */
+                is_break_code = TRUE;
+
+                return;
+            }
+
+            if (!is_escape2) {
+                if (code == 0x14) {
+                    /* Abuse the is_escape2 flag to keep track of where we are processing this key */
+                    is_escape2 = TRUE;
+                } else if (is_break_code && code == 0x77) {
+                    /* Sequence complete */
+                    is_break_code = FALSE;
+                    state = KEY_STATE_DEFAULT;
+                }
+            } else {
+                if (code == 0x77) {
+                    /* Pause/Break key pressed */
+                    /* TODO: something? */
+                    KDEBUG(("vt82c42_handle_key(): Pause/Break\n"));
+                } else if (is_break_code && code == 0x14) {
+                    is_break_code = FALSE;
+                    is_escape2 = FALSE;
+                }
+            }
+
+            return;
+
+        default:
+            if (code == 0xF0) {
+                /* Next code will be a break code */
+                is_break_code = TRUE;
+
+                return;
+            }
+
+            if (code == 0xE0) {
+                /* Extended key code */
+                state = KEY_STATE_ESCAPE;
+
+                return;
+            }
+
+            if (code == 0xE1) {
+                /* Probably Pause/Break */
+                state = KEY_STATE_PAUSE_BREAK;
+
+                return;
+            }
+
+            if (code > COMET_VGA_MAX_KEY_CODE) {
+                /* Ignore/consume codes that are out of range */
+                is_break_code = FALSE;
+
+                return;
+            }
+
+            /* Look up translated code ... */
+            xlat_code = g_key_mode & STATUS_NUM_LOCK ? ps2_scancode_map_numlock[make_code] : ps2_scancode_map[make_code];
+
+            if (xlat_code == 0) {
+                /* Ignore/consume this code */
+                is_break_code = FALSE;
+
+                return;
+            }
+
+            if ((SBYTE)xlat_code != -1) {
+                /* This code will be queued */
+                queue_code = TRUE;
+            } else {
+                /* Special handling */
+                if (make_code == 0x58) {
+                    /* Caps lock */
+                    if (!is_break_code) {
+                        g_key_mode ^= STATUS_CAPS_LOCK;
+                        update_leds = TRUE;
+
+                        /* Consume repeats to prevent toggling */
+                        state = KEY_STATE_UNTIL_BREAK;
+                    }
+
+                    xlat_code = 0x3A;
+                    queue_code = TRUE;
+
+                    break;
+                }
+
+                if (make_code == 0x7E) {
+                    /* Scroll lock */
+                    if (!is_break_code) {
+                        g_key_mode ^= STATUS_SCROLL_LOCK;
+                        update_leds = TRUE;
+
+                        /* Consume repeats to prevent toggling */
+                        state = KEY_STATE_UNTIL_BREAK;
+                    }
+
+                    xlat_code = 0x46;
+                    queue_code = TRUE;
+
+                    break;
+                }
+
+                if (make_code == 0x77) {
+                    /* Num lock */
+                    if (!is_break_code) {
+                        g_key_mode ^= STATUS_NUM_LOCK;
+                        update_leds = TRUE;
+
+                        /* Consume repeats to prevent toggling */
+                        state = KEY_STATE_UNTIL_BREAK;
+                    }
+
+                    xlat_code = 0x45;
+                    queue_code = TRUE;
+
+                    break;
+                }
+
+                if (make_code == 0x7C) {
+                    /* Numpad * */
+                    if (!is_break_code) {
+                        push_ascii_ikbdiorec('*');
+                    }
+
+                    is_break_code = FALSE;
+
+                    return;
+                }
+
+                if (make_code == 0x71) {
+                    /* Numpad . */
+                    if (!is_break_code) {
+                        push_ascii_ikbdiorec('.');
+                    }
+
+                    is_break_code = FALSE;
+
+                    return;
+                }
+            }
     }
-    else
-    {
-        if (sc == SCAN_CODE_CAPLOCK && !key_break)
-        {
-            g_key_mode ^= STATUS_CAPS_LOCK;
-            vt_set_leds(g_key_mode);
-        }
-        else if (sc == SCAN_CODE_NUMLOCK && !key_break)
-        {
-            g_key_mode ^= STATUS_NUM_LOCK;
-            vt_set_leds(g_key_mode);
-        }
-        else if (sc == SCAN_CODE_SCRLOCK && !key_break)
-        {
-            g_key_mode ^= STATUS_SCROLL_LOCK;
-            vt_set_leds(g_key_mode);
+
+    if (queue_code) {
+        if (is_break_code) {
+            /* Set MSb for break code */
+            xlat_code |= 0x80;
+
+            is_break_code = FALSE;
         }
 
-        sc &= 0x7f;
+        call_ikbdraw(xlat_code);
+    }
 
-        if (key_extended)
-            chr = st_extended_make_code_map[sc];
-        else
-            chr = st_make_code_map[sc];
-
-        if (key_break)
-            chr |= 0x80; // set break code
-
-        
-        KDEBUG(("call_ikbdraw 0x%02x\n", chr));
-        call_ikbdraw(chr);
-        key_extended = 0;
-        key_break = 0;        
-	}
+    if (update_leds) {
+        /* Set LEDs */
+        (void)vt_data_data_polled(0xED);
+        (void)vt_data_data_polled(g_key_mode);
+    }
 }
 
 #endif
