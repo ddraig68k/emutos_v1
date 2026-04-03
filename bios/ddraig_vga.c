@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "ddraig_vga.h"
+#include "ddraigvdp.h"
 #include "emutos.h"
 #include "lineavars.h"
 #include "tosvars.h"
@@ -16,22 +17,24 @@
 
 // Hard codeed for now, should be detected
 uint32_t ddraigvga_base = 0xF7F500;
+uint32_t ddraigvga_membase = 0xA00000;
 
 uint16_t ddraigvga_screenbuf[DRVGA_TEXTBUF_SIZE];
 
 void drvga_write_control_reg(uint16_t data)
 {
-    DRVGA_REG_WRITE(REG_CONTROL, data);
+    VDP_REG_WRITE(REG_CONTROL, data);
 }
 
 void drvga_write_char(uint16_t address, uint16_t text)
 {
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, address);
-    DRVGA_REG_WRITE(REG_PARAM_DATA1, text);
-    DRVGA_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
-    if (address < DRVGA_TEXTBUF_SIZE) {
-        ddraigvga_screenbuf[address] = text;
+    if (address >= DRVGA_TEXTBUF_SIZE) {
+        return;
     }
+    
+    VDP_REG_WRITE(REG_TEXT_ADDR, address);
+    VDP_REG_WRITE(REG_TEXT_DATA, text);
+    ddraigvga_screenbuf[address] = text;
 }
 
 uint16_t drvga_read_char(uint16_t address)
@@ -47,11 +50,10 @@ void drvga_copy_buffer(void)
 {
     uint16_t i;
 
-    DRVGA_REG_WRITE(REG_PARAM_DATA0, 0);
+    VDP_REG_WRITE(REG_TEXT_ADDR, 0);
     for (i = 0; i < DRVGA_TEXTBUF_SIZE; i++)
     {
-        DRVGA_REG_WRITE(REG_PARAM_DATA1, ddraigvga_screenbuf[i]);
-        DRVGA_REG_WRITE(REG_COMMAND, CMD_SET_CHARACTER);
+        VDP_REG_WRITE(REG_TEXT_DATA, ddraigvga_screenbuf[i]);
     }
 }
 
@@ -116,6 +118,8 @@ void ddraigvga_screen_init(void)
 
     KDEBUG(("ddraigvga_screen_init()\n"));
 
+    vdp_init(ddraigvga_base, ddraigvga_membase);
+
     drvga_write_control_reg(DISPMODE_TEXT);
     for (i = 0; i < DRVGA_TEXTBUF_SIZE; i++) {
         ddraigvga_screenbuf[i] = ' ';
@@ -124,10 +128,7 @@ void ddraigvga_screen_init(void)
     init_system_vars();
 
     // Enable the VBL interrupt
-    DRVGA_REG_WRITE(REG_INTERRUPT, 0x0001);
-
+    VDP_REG_WRITE(REG_INTERRUPT, 0x0001);
 }
-
-
 
 #endif
