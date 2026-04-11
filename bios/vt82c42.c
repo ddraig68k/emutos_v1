@@ -38,6 +38,10 @@
 
 #define WAIT_TIMEOUT 10000
 #define VT82C42_DEBUG_COUNTERS 1
+#define VT82C42_MAX_IRQ_BYTES 16
+#ifndef VT82C42_MOUSE_SAMPLE_RATE
+#define VT82C42_MOUSE_SAMPLE_RATE 20
+#endif
 
 enum vt_port {
     PORT_KB = 0,
@@ -67,6 +71,7 @@ static UBYTE g_key_mode = 0;
 
 #if VT82C42_DEBUG_COUNTERS
 static volatile ULONG dbg_irq_no_obf;
+static volatile ULONG dbg_irq_max_bytes;
 static volatile ULONG dbg_mouse_bad_sync;
 static volatile ULONG dbg_mouse_overflow_drop;
 static volatile ULONG dbg_scancode_proto_drop;
@@ -76,6 +81,7 @@ static volatile ULONG dbg_scancode_unmapped_drop;
 static void vt82c42_debug_reset_counters(void)
 {
     dbg_irq_no_obf = 0;
+    dbg_irq_max_bytes = 0;
     dbg_mouse_bad_sync = 0;
     dbg_mouse_overflow_drop = 0;
     dbg_scancode_proto_drop = 0;
@@ -85,8 +91,8 @@ static void vt82c42_debug_reset_counters(void)
 
 void vt82c42_debug_dump_counters(void)
 {
-    kprintf("vt82c42 dbg: irq_no_obf=%lu mouse_bad_sync=%lu mouse_overflow=%lu\n",
-        dbg_irq_no_obf, dbg_mouse_bad_sync, dbg_mouse_overflow_drop);
+    kprintf("vt82c42 dbg: irq_no_obf=%lu irq_max_bytes=%lu mouse_bad_sync=%lu mouse_overflow=%lu\n",
+        dbg_irq_no_obf, dbg_irq_max_bytes, dbg_mouse_bad_sync, dbg_mouse_overflow_drop);
     kprintf("vt82c42 dbg: sc_proto_drop=%lu sc_oob_drop=%lu sc_unmapped_drop=%lu\n",
         dbg_scancode_proto_drop, dbg_scancode_oob_drop, dbg_scancode_unmapped_drop);
 }
@@ -327,8 +333,11 @@ static void vt_flush(void)
 //	keyboard interrupt handler
 void __attribute__((interrupt)) vt_interrupt_handler(void)
 {
-    UBYTE status = PS2_READ(PS2_STAT);
+    UBYTE status;
+    UBYTE data;
+    UBYTE n;
 
+    status = PS2_READ(PS2_STAT);
     if (!(status & STATUS_OBF)) {
 #if VT82C42_DEBUG_COUNTERS
         dbg_irq_no_obf++;
@@ -336,13 +345,24 @@ void __attribute__((interrupt)) vt_interrupt_handler(void)
         return;
     }
 
-    UBYTE data = PS2_READ(PS2_DATA);
+    /* Drain pending controller bytes with a bound to avoid a long IRQ stall. */
+    for (n = 0; n < VT82C42_MAX_IRQ_BYTES; n++) {
+        status = PS2_READ(PS2_STAT);
+        if (!(status & STATUS_OBF))
+            break;
 
-    // Bit 5 set, mouse data
-    if (status & STATUS_AUXDATA)
-        vt_handle_mouse(data);
-    else if (status & 0x01)
-        vt_process_scancode(data);
+        data = PS2_READ(PS2_DATA);
+
+        if (status & STATUS_AUXDATA)
+            vt_handle_mouse(data);
+        else
+            vt_process_scancode(data);
+    }
+
+#if VT82C42_DEBUG_COUNTERS
+    if (n == VT82C42_MAX_IRQ_BYTES)
+        dbg_irq_max_bytes++;
+#endif
 }
 
 UBYTE vt8242_init(void)
@@ -414,7 +434,7 @@ UBYTE vt8242_init(void)
     if (data != 0xFA) {
         KDEBUG(("vt8242_init(): Mouse CMD_RATE failed, got %02X\n", data));
     }
-    data = vt_send_device_cmd(PORT_MS, 20); // Set sample rate to 20 reports/sec
+    data = vt_send_device_cmd(PORT_MS, VT82C42_MOUSE_SAMPLE_RATE); // Set sample rate to reports/sec
     if (data != 0xFA) {
         KDEBUG(("vt8242_init(): Mouse CMD_RATE data failed, got %02X\n", data));
     }
