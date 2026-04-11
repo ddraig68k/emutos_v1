@@ -33,8 +33,11 @@
 #define MOUSE_REL_POS_REPORT    0xf8    /* values for mouse_packet[0] */
 #define RIGHT_BUTTON_DOWN       0x01    /* these values are OR'ed in */
 #define LEFT_BUTTON_DOWN        0x02
+#define MOUSE_STATUS_XOVERFLOW  0x40
+#define MOUSE_STATUS_YOVERFLOW  0x80
 
 #define WAIT_TIMEOUT 10000
+#define VT82C42_DEBUG_COUNTERS 1
 
 enum vt_port {
     PORT_KB = 0,
@@ -61,6 +64,41 @@ void vt_process_mouse(int8_t *packet);
 void vt_handle_mouse(UBYTE data);
 
 static UBYTE g_key_mode = 0;
+
+#if VT82C42_DEBUG_COUNTERS
+static volatile ULONG dbg_irq_no_obf;
+static volatile ULONG dbg_mouse_bad_sync;
+static volatile ULONG dbg_mouse_overflow_drop;
+static volatile ULONG dbg_scancode_proto_drop;
+static volatile ULONG dbg_scancode_oob_drop;
+static volatile ULONG dbg_scancode_unmapped_drop;
+
+static void vt82c42_debug_reset_counters(void)
+{
+    dbg_irq_no_obf = 0;
+    dbg_mouse_bad_sync = 0;
+    dbg_mouse_overflow_drop = 0;
+    dbg_scancode_proto_drop = 0;
+    dbg_scancode_oob_drop = 0;
+    dbg_scancode_unmapped_drop = 0;
+}
+
+void vt82c42_debug_dump_counters(void)
+{
+    kprintf("vt82c42 dbg: irq_no_obf=%lu mouse_bad_sync=%lu mouse_overflow=%lu\n",
+        dbg_irq_no_obf, dbg_mouse_bad_sync, dbg_mouse_overflow_drop);
+    kprintf("vt82c42 dbg: sc_proto_drop=%lu sc_oob_drop=%lu sc_unmapped_drop=%lu\n",
+        dbg_scancode_proto_drop, dbg_scancode_oob_drop, dbg_scancode_unmapped_drop);
+}
+#else
+static void vt82c42_debug_reset_counters(void)
+{
+}
+
+void vt82c42_debug_dump_counters(void)
+{
+}
+#endif
 
 static const UBYTE st_make_code_map[] = {
     0 , 67 /*F9*/, 0 , 63 /*F5*/, 61 /*F3*/, 59 /*F1*/, 60 /*F2*/, 97 /*F12*/,
@@ -290,10 +328,18 @@ static void vt_flush(void)
 void __attribute__((interrupt)) vt_interrupt_handler(void)
 {
     UBYTE status = PS2_READ(PS2_STAT);
+
+    if (!(status & STATUS_OBF)) {
+#if VT82C42_DEBUG_COUNTERS
+        dbg_irq_no_obf++;
+#endif
+        return;
+    }
+
     UBYTE data = PS2_READ(PS2_DATA);
 
     // Bit 5 set, mouse data
-    if (status & 0x20)
+    if (status & STATUS_AUXDATA)
         vt_handle_mouse(data);
     else if (status & 0x01)
         vt_process_scancode(data);
@@ -303,14 +349,19 @@ UBYTE vt8242_init(void)
 {
     volatile PFVOID *vector_addr;
     UBYTE data;
+    UBYTE cfg;
 
     KDEBUG(("vt8242_init()\n"));
     WORD old_sr;
     /* disable interrupts */
     old_sr = set_sr(0x2700);
+    vt82c42_debug_reset_counters();
 
-    /* Disable keyboard and mouse ports, disable interrupts and translation */
-    vt_set_cmd_byte(CMD_BYTE_AUX_OFF | CMD_BYTE_KBD_OFF);
+    /* Disable keyboard/mouse ports and interrupts while probing the controller. */
+    cfg = vt_get_cmd_byte();
+    cfg &= ~(CMD_BYTE_KBD_INT | CMD_BYTE_AUX_INT | CMD_BYTE_TRANS);
+    cfg |= (CMD_BYTE_AUX_OFF | CMD_BYTE_KBD_OFF);
+    vt_set_cmd_byte(cfg);
     vt_flush();
 
     KDEBUG(("vt8242_init: install keyboard interrupt handler\n"));
@@ -368,8 +419,14 @@ UBYTE vt8242_init(void)
         KDEBUG(("vt8242_init(): Mouse CMD_RATE data failed, got %02X\n", data));
     }
 
-    vt_send_device_cmd(PORT_MS, MOUSE_CMD_RESOLUTION);
-    vt_send_device_cmd(PORT_MS, 1);
+    data = vt_send_device_cmd(PORT_MS, MOUSE_CMD_RESOLUTION);
+    if (data != 0xFA) {
+        KDEBUG(("vt8242_init(): Mouse CMD_RESOLUTION failed, got %02X\n", data));
+    }
+    data = vt_send_device_cmd(PORT_MS, 1);
+    if (data != 0xFA) {
+        KDEBUG(("vt8242_init(): Mouse CMD_RESOLUTION data failed, got %02X\n", data));
+    }
 
     /* Enable streaming mode */
     data = vt_send_device_cmd(PORT_MS, MOUSE_CMD_DATAEN); // enable data reporting
@@ -382,9 +439,11 @@ UBYTE vt8242_init(void)
 
     vt_flush();
 
-    // Enable interrupts
-    UBYTE cfg = vt_get_cmd_byte();
-    vt_set_cmd_byte(cfg | CMD_BYTE_KBD_INT | CMD_BYTE_AUX_INT);
+    // Enable interrupts (keep translation off, and explicitly enable both ports)
+    cfg = vt_get_cmd_byte();
+    cfg &= ~(CMD_BYTE_AUX_OFF | CMD_BYTE_KBD_OFF | CMD_BYTE_TRANS);
+    cfg |= (CMD_BYTE_KBD_INT | CMD_BYTE_AUX_INT);
+    vt_set_cmd_byte(cfg);
 
     /* restore interrupts */
     set_sr(old_sr);    
@@ -421,8 +480,20 @@ void vt_handle_mouse(UBYTE data)
     {
         case 0:
             // FIrst byte should have bit 3 set (sync)
-            if (!(data & 0x08))
+            if (!(data & 0x08)) {
+#if VT82C42_DEBUG_COUNTERS
+                dbg_mouse_bad_sync++;
+#endif
                 return;
+            }
+
+            /* Drop packets with overflow bits set: deltas are invalid anyway. */
+            if (data & (MOUSE_STATUS_XOVERFLOW | MOUSE_STATUS_YOVERFLOW)) {
+#if VT82C42_DEBUG_COUNTERS
+                dbg_mouse_overflow_drop++;
+#endif
+                return;
+            }
 
             mouse_bytes[0] = data;
             mouse_cycle = 1;
@@ -448,6 +519,16 @@ void vt_process_scancode(UBYTE sc)
     static UBYTE key_remaining = 0;
 
 	UBYTE register chr;
+
+    /* Ignore PS/2 protocol/status replies that are not keyboard scancodes. */
+    if ((sc == KBD_STATUS_ACK) || (sc == KBD_STATUS_RESEND)
+        || (sc == KBD_STATUS_ECHO) || (sc == KBD_STATUS_RST_OK)
+        || (sc == KBD_STATUS_OVER)) {
+    #if VT82C42_DEBUG_COUNTERS
+        dbg_scancode_proto_drop++;
+    #endif
+        return;
+        }
 
     if (key_remaining > 0)
     {
@@ -483,10 +564,37 @@ void vt_process_scancode(UBYTE sc)
 
         sc &= 0x7f;
 
-        if (key_extended)
+        if (key_extended) {
+            if (sc >= ARRAY_SIZE(st_extended_make_code_map)) {
+#if VT82C42_DEBUG_COUNTERS
+                dbg_scancode_oob_drop++;
+#endif
+                key_extended = 0;
+                key_break = 0;
+                return;
+            }
             chr = st_extended_make_code_map[sc];
-        else
+        } else {
+            if (sc >= ARRAY_SIZE(st_make_code_map)) {
+#if VT82C42_DEBUG_COUNTERS
+                dbg_scancode_oob_drop++;
+#endif
+                key_extended = 0;
+                key_break = 0;
+                return;
+            }
             chr = st_make_code_map[sc];
+        }
+
+        /* Ignore unmapped/sentinel entries: sending 0xff to ikbdraw is unsafe. */
+        if ((chr == 0) || (chr == 0xff)) {
+#if VT82C42_DEBUG_COUNTERS
+            dbg_scancode_unmapped_drop++;
+#endif
+            key_extended = 0;
+            key_break = 0;
+            return;
+        }
 
         if (key_break)
             chr |= 0x80; // set break code

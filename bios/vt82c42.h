@@ -85,7 +85,8 @@
 #define STATUS_SYS			    0x04	// system flag - unused
 #define STATUS_CMD			    0x08	// 1 = command in input buffer, 0 = data
 #define STATUS_INH			    0x10	// 1 = Inhibit - unused
-#define STATUS_TX				0x20	// 1 = Transmit Timeout has occured
+#define STATUS_AUXDATA		    0x20	// 1 = output byte came from AUX/mouse channel
+#define STATUS_TX				0x20	// Legacy name used on some controllers/docs for timeout
 #define STATUS_RX				0x40	// 1 = Receive Timeout has occured
 #define STATUS_PERR			    0x80	// 1 = Parity Error from Keyboard
 
@@ -134,6 +135,7 @@
 
 
 UBYTE vt8242_init(void);
+void vt82c42_debug_dump_counters(void);
 
 
 #endif

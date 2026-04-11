@@ -542,7 +542,16 @@ ikbdraw:
         cmp.w   #0xf6,d0        // is byte a packet header?
         jcc     begin_packet    // byte >= 0xf6 => go begin receiving a packet
         lea     _ikbdiorec,a0   // set args for kbdvec: a0->iorec (d0=ikbd byte)
-        move.l  kbdvec,-(sp)    // push vector onto stack
+        move.l  kbdvec,d1       // get kbdvec target
+        tst.l   d1              // reject null vector
+        jeq     kbdvec_default
+        btst    #0,d1           // reject odd vector (would trigger address error)
+        jeq     kbdvec_ready
+kbdvec_default:
+        move.l  #_kbdvec,d1
+        move.l  d1,kbdvec
+kbdvec_ready:
+        move.l  d1,-(sp)        // push vector onto stack
         rts                     // and go there (stack is clean, no need to jsr)
 
 begin_packet:

@@ -33,9 +33,12 @@
 #include "ikbd.h"
 #include "midi.h"
 #include "amiga.h"
+#if MACHINE_DDRAIG68K
+#include "vt82c42.h"
+#endif
 
-#define DISPLAY_INSTRUCTION_AT_PC   0   /* set to 1 for extra info from dopanic() */
-#define DISPLAY_STACK               0   /* set to 1 for extra info from dopanic() */
+#define DISPLAY_INSTRUCTION_AT_PC   1   /* set to 1 for extra info from dopanic() */
+#define DISPLAY_STACK               1   /* set to 1 for extra info from dopanic() */
 
 #if STONX_NATIVE_PRINT
 
@@ -584,6 +587,8 @@ void dopanic(const char *fmt, ...)
                  user_stk[12], user_stk[13], user_stk[14], user_stk[15]);
     }
 #endif
+
+    vt82c42_debug_dump_counters();    
 
     if (wrap)
         v_stat_0 |= M_CEOL;         /* restore line wrap status */

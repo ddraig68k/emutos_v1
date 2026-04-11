@@ -19,7 +19,7 @@
 # endif
 
 # ifndef CONF_STRAM_SIZE
-#  define CONF_STRAM_SIZE (8<<20)
+#  define CONF_STRAM_SIZE (6<<20)
 # endif
 # ifndef CONF_WITH_ALT_RAM
 #  define CONF_WITH_ALT_RAM 0
@@ -103,7 +103,6 @@
 # ifndef CONF_VT82C42_AUTOVECTOR
 #  define CONF_VT82C42_AUTOVECTOR 5
 # endif
-
 
 # ifndef USE_STOP_INSN_TO_FREE_HOST_CPU
 #  define USE_STOP_INSN_TO_FREE_HOST_CPU 0
