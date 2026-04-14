@@ -111,6 +111,15 @@
 #  define DETECT_NATIVE_FEATURES 0
 # endif
 
+/*
+ * Set CONF_WITH_EXTENDED_MOUSE to 1 to enable extended mouse support.
+ * This includes new Eiffel scancodes for mouse buttons 3, 4, 5, and
+ * the wheel.
+ */
+#ifndef CONF_WITH_EXTENDED_MOUSE
+# define CONF_WITH_EXTENDED_MOUSE 0
+#endif
+
 #define DEFAULT_BAUDRATE B19200
 
 #endif
