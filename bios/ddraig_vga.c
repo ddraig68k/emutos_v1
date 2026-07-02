@@ -14,6 +14,7 @@
 
 #define VGA_CHAR_WIDTH  80
 #define VGA_CHAR_HEIGHT 30
+#define DRVGA_BLANK_CELL vdp_make_text_cell(' ', VDP_TEXT_FG_WHITE, 0)
 
 // Hard codeed for now, should be detected
 uint32_t ddraigvga_base = 0xF7F500;
@@ -32,8 +33,7 @@ void drvga_write_char(uint16_t address, uint16_t text)
         return;
     }
     
-    VDP_REG_WRITE(REG_TEXT_ADDR, address);
-    VDP_REG_WRITE(REG_TEXT_DATA, text);
+    vdp_get_textmem_base()[address] = text;
     ddraigvga_screenbuf[address] = text;
 }
 
@@ -49,11 +49,11 @@ uint16_t drvga_read_char(uint16_t address)
 void drvga_copy_buffer(void)
 {
     uint16_t i;
+    uint16_t *textmem = vdp_get_textmem_base();
 
-    VDP_REG_WRITE(REG_TEXT_ADDR, 0);
     for (i = 0; i < DRVGA_TEXTBUF_SIZE; i++)
     {
-        VDP_REG_WRITE(REG_TEXT_DATA, ddraigvga_screenbuf[i]);
+        textmem[i] = ddraigvga_screenbuf[i];
     }
 }
 
@@ -69,7 +69,7 @@ void drvga_scroll_up(void)
     // blank out last line
     dst = &ddraigvga_screenbuf[(VGA_CHAR_HEIGHT - 1) * VGA_CHAR_WIDTH];
     for (i = 0; i < VGA_CHAR_WIDTH; i++) {
-        *dst++ = ' ';
+        *dst++ = DRVGA_BLANK_CELL;
     }
     drvga_copy_buffer();
 }
@@ -87,7 +87,7 @@ void drvga_scroll_down(void)
     // Blank out first line
     dst = &ddraigvga_screenbuf[0];
     for (i = 0; i < VGA_CHAR_WIDTH; i++) {
-        *dst++ = ' ';
+        *dst++ = DRVGA_BLANK_CELL;
     }
     drvga_copy_buffer();
 }
@@ -119,10 +119,11 @@ void ddraigvga_screen_init(void)
     KDEBUG(("ddraigvga_screen_init()\n"));
 
     vdp_init(ddraigvga_base, ddraigvga_membase);
+    vdp_set_text_base(0);
 
     drvga_write_control_reg(DISPMODE_TEXT);
     for (i = 0; i < DRVGA_TEXTBUF_SIZE; i++) {
-        ddraigvga_screenbuf[i] = ' ';
+        ddraigvga_screenbuf[i] = DRVGA_BLANK_CELL;
     }
     drvga_copy_buffer();
     init_system_vars();

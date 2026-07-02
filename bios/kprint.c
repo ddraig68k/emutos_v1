@@ -33,7 +33,7 @@
 #include "ikbd.h"
 #include "midi.h"
 #include "amiga.h"
-#if MACHINE_DDRAIG68K
+#if defined(MACHINE_DDRAIG68K)
 #include "vt82c42.h"
 #endif
 
@@ -588,7 +588,9 @@ void dopanic(const char *fmt, ...)
     }
 #endif
 
-    vt82c42_debug_dump_counters();    
+#ifdef CONF_WITH_VT82C42
+    vt82c42_debug_dump_counters();
+#endif
 
     if (wrap)
         v_stat_0 |= M_CEOL;         /* restore line wrap status */

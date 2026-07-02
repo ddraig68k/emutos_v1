@@ -33,4 +33,4 @@
 /tests/*/*.tos
 build/
 .vscode/
-
+.tmp*

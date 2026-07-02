@@ -559,7 +559,7 @@ static int ide_interface_exists(WORD ifnum, LONG timeout)
     volatile struct IDE *twisted_iface = (volatile struct IDE *)(((ULONG)ifinfo[ifnum].base_address)-1);
     enum ide_if_status regular_iface_status = IDE_IF_NOTCHECKED;
     enum ide_if_status twisted_iface_status = IDE_IF_NOTPRESENT;
-#if !defined(MACHINE_MEGA_68000) && !defined(MACHINE_DDRAIG68K)
+#if !defined(MACHINE_TINY68K) && !defined(MACHINE_ROBERTS7531) && !defined(MACHINE_MEGA_68000) && !defined(MACHINE_DDRAIG68K)
     BOOL allow_twisted = check_read_byte((long)&twisted_iface->control);
 #else
     BOOL allow_twisted = FALSE;

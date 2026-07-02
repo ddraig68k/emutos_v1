@@ -6,6 +6,7 @@
 
 extern uint32_t g_vdp_reg_base;
 extern uint16_t *g_vdp_memory_base;
+extern uint16_t *g_vdp_textmem_base;
 
 #define VDP_TEXTBUF_SIZE  4800  /* Max of 80x60*/
 
@@ -15,41 +16,55 @@ extern uint16_t *g_vdp_memory_base;
 #define	REG_STATUS              0x00    // Status register
 #define REG_CONTROL             0x02    // Display control register
 #define REG_INTERRUPT           0x04    // Interrupt control/ status
-#define REG_RAMPAGE             0x06    // SRAM Page control
+#define REG_INT_LINE_Y          0x06    // Line interrupt control value
+#define REG_RAMPAGE             0x08    // SRAM Page control
 
 #define REG_FRAMEBUFFER_L		0x10    // Bitmap data address location (L) 
 #define REG_FRAMEBUFFER_H		0x12    // Bitmap data address location (H)
-#define REG_TEXT_BASE_L		    0x14    /* Text base address (L) */
-#define REG_TEXT_BASE_H		    0x16    /* Text base address (H) */
-
 #define REG_LINESCR_DATA_L		0x18    // Tile scroll table data address location (L) 
 #define REG_LINESCR_DATA_H		0x1A    // Tile scroll table tile data address location (H)
 
 #define REG_TEXT_ADDR		    0x20    // Text buffer index
 #define REG_TEXT_DATA		    0x22    // Text buffer data
-#define REG_CURSOR_POS		    0x24    // Cursor position Y,X
-#define REG_CURSOR_SIZE		    0x26    // Cursor size bottom,top
+#define REG_TEXT_BASE_L		    0x24    /* Text base address (L) */
+#define REG_TEXT_BASE_H		    0x26    /* Text base address (H) */
+#define REG_CURSOR_POS		    0x28    // Cursor position Y,X
+#define REG_CURSOR_SIZE		    0x2A    // Cursor size bottom,top
 
-#define REG_PALETTE_IDX         0x28    // Palette index register
-#define REG_PALETTE_DATA        0x2A    // Palette data register
-#define REG_PALETTE_CTRL0       0x2C    // Palette control register (Text and Bitmap)
-#define REG_PALETTE_CTRL1       0x2E    // Palette control register (Tiles and Sprites)
+#define REG_FONT_ADDR		    0x30    // Pattern address index 
+#define REG_FONT_DATA		    0x32    // Pattern data
 
-#define	REG_COMMAND             0x30    // Command control register
-#define REG_DRAW_BASE_L		    0x32    // Draw base address (L)
-#define REG_DRAW_BASE_H		    0x34    // Draw base address (H)
-#define	REG_DRAW_COLOR0         0x36    // Draw color 0
-#define	REG_DRAW_COLOR1         0x38    // Draw color 1
-#define	REG_DRAW_MODE           0x3A    // Draw mode, solid, xor, ...
-#define	REG_DRAW_PATTERN        0x3C    // Draw pattern index/data
+#define REG_PALETTE_IDX         0x40    // Palette index register
+#define REG_PALETTE_DATA        0x42    // Palette data register
+#define REG_PALETTE_CTRL0       0x44    // Palette control register (Text and Bitmap)
+#define REG_PALETTE_CTRL1       0x46    // Palette control register (Tiles and Sprites)
 
-#define	REG_PARAM_DATA0         0x40    // Command parameter 0
-#define	REG_PARAM_DATA1         0x42    // Command parameter 1
-#define	REG_PARAM_DATA2         0x44    // Command parameter 2
-#define	REG_PARAM_DATA3         0x46    // Command parameter 3
-#define	REG_PARAM_DATA4         0x48    // Command parameter 4
-#define	REG_PARAM_DATA5         0x4A    // Command parameter 5
-#define	REG_PARAM_DATA6         0x4C    // Command parameter 6
+#define REG_HW_CURSOR_CTRL      0xA0
+#define REG_HW_CURSOR_X         0xA2
+#define REG_HW_CURSOR_Y         0xA4
+#define REG_HW_CURSOR_ADDR      0xA6
+#define REG_HW_CURSOR_DATA      0xA8
+#define REG_HW_CURSOR_COL1      0xAA
+#define REG_HW_CURSOR_COL2      0xAC
+#define REG_HW_CURSOR_COL3      0xAE
+
+#define REG_DRAW_BASE_L		    0xB0    // Draw base address (L)
+#define REG_DRAW_BASE_H		    0xB2    // Draw base address (H)
+#define REG_DRAW_STRIDE         0xB4    // Draw stride in words
+#define REG_DRAW_STATUS         0xB6    // Draw engine status
+#define	REG_DRAW_COLOR0         0xB8    // Draw color 0
+#define	REG_DRAW_COLOR1         0xBA    // Draw color 1
+#define	REG_DRAW_MODE           0xBC    // Draw mode, solid, xor, ...
+#define	REG_DRAW_PATTERN        0xBE    // Draw pattern index/data
+
+#define	REG_PARAM_DATA0         0xC0    // Command parameter 0
+#define	REG_PARAM_DATA1         0xC2    // Command parameter 1
+#define	REG_PARAM_DATA2         0xC4    // Command parameter 2
+#define	REG_PARAM_DATA3         0xC6    // Command parameter 3
+#define	REG_PARAM_DATA4         0xC8    // Command parameter 4
+#define	REG_PARAM_DATA5         0xCA    // Command parameter 5
+#define	REG_PARAM_DATA6         0xCC    // Command parameter 6
+#define	REG_COMMAND             0xCE    // Command control register
 
 #define REG_TILE1_CTRL		    0x50    // Tilemap 0 control register
 #define REG_TILE1_DATA_L        0x52    // Tilemap 0 16x16 tile data address register (L)
@@ -91,13 +106,12 @@ extern uint16_t *g_vdp_memory_base;
 #define REG_SPRITE_TILE         0x9A
 #define REG_SPRITE_ATTRIB       0x9C
 
-#define REG_FONT_ADDR		    0xA0    // Pattern address index 
-#define REG_FONT_DATA		    0xA2    // Pattern data
-
-#define REG_PATTERN_ADDR		0xA4    // Pattern address index 
-#define REG_PATTERN_DATA		0xA6    // Pattern data
-
-#define REG_INT_LINE_Y          0xA8    // Line interrupt control value
+#define REG_PATTERN_ADDR		0xD0    // Pattern address index 
+#define REG_PATTERN_DATA		0xD2    // Pattern data
+#define REG_CLIP_X0             0xD4
+#define REG_CLIP_Y0             0xD6
+#define REG_CLIP_X1             0xD8
+#define REG_CLIP_Y1             0xDA
 
 #define CMD_NONE                0x00   
 #define CMD_FILL_RECT           0x01
@@ -108,6 +122,7 @@ extern uint16_t *g_vdp_memory_base;
 #define CMD_MEM_COPY_LINEAR     0x06
 #define CMD_MEM_COPY_2D         0x07
 #define CMD_MEM_FILL_LINEAR     0x08
+#define CMD_DRAW_EXPAND         0x09
 
 #define DRAW_MODE_SOLID        0x0
 #define DRAW_MODE_XOR          0x1
@@ -129,9 +144,9 @@ extern uint16_t *g_vdp_memory_base;
 // Bitmap mode bits per pixel
 #define DISP_DEPTH_RGB 		    0x0000
 #define DISP_DEPTH_8BPP			0x0008
-#define DISP_DEPTH_4BPP			0x0009
-#define DISP_DEPTH_2BPP			0x000A
-#define DISP_DEPTH_1BPP			0x000B
+#define DISP_DEPTH_4BPP			0x0010
+#define DISP_DEPTH_2BPP			0x0018
+#define DISP_DEPTH_1BPP			0x0020
 // Text control 
 #define ENABLE_CURSOR           0x0100
 #define ENABLE_BLINK            0x0200
@@ -142,6 +157,7 @@ extern uint16_t *g_vdp_memory_base;
 #define SCANLINE_GREY           0x2000
 #define SCANLINE_COLOR          0x3000
 #define TEXT_OVERLAY            0x4000
+#define DISABLE_DISPLAY         0x8000
 
 #define TILEMAP1                0x00
 #define TILEMAP2                0x01
@@ -194,6 +210,11 @@ static inline uint16_t *vdp_get_memory_base(void)
     return g_vdp_memory_base;
 }
 
+static inline uint16_t *vdp_get_textmem_base(void)
+{
+    return g_vdp_textmem_base;
+}
+
 // Framebuffer pointer
 void vdp_set_framebuffer_addr(uint32_t addr);
 uint32_t vdp_get_framebuffer_addr(void);
@@ -226,6 +247,7 @@ static inline uint16_t vdp_make_text_cell(uint8_t ch, uint16_t fg, uint16_t bg)
 }
 
 // Text commands
+void vdp_set_text_base(uint32_t addr);
 void vdp_clear_text(void);
 void vdp_write_text(uint16_t posx, uint16_t posy, const char *text);
 void vdp_write_char(uint16_t posx, uint16_t posy, uint16_t text);

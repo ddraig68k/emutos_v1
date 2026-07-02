@@ -40,7 +40,7 @@
 #define VT82C42_DEBUG_COUNTERS 1
 #define VT82C42_MAX_IRQ_BYTES 16
 #ifndef VT82C42_MOUSE_SAMPLE_RATE
-#define VT82C42_MOUSE_SAMPLE_RATE 20
+#define VT82C42_MOUSE_SAMPLE_RATE 10
 #endif
 
 enum vt_port {
@@ -488,7 +488,10 @@ void vt_process_mouse(int8_t *process)
 
     KDEBUG(("Mouse: X=%d Y=%d B=%d\n", (int)packet[1], (int)packet[2], packet[0] & 0x03));
 
-    call_mousevec(packet);
+    /* Feed an IKBD relative-mouse packet through the common parser. */
+    call_ikbdraw((UBYTE)packet[0]);
+    call_ikbdraw((UBYTE)packet[1]);
+    call_ikbdraw((UBYTE)packet[2]);
 }
 
 void vt_handle_mouse(UBYTE data)

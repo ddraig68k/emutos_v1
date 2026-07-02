@@ -180,7 +180,7 @@ void scroll_up(const UWORD top_line)
 {
     const uint16_t dest_vram = cell_addr(0, top_line);
     const uint16_t src_vram  = dest_vram + (v_cel_mx + 1); // one row below dest
-    const uint16_t count = (v_cel_my + 1 - top_line) * (v_cel_mx + 1);
+    const uint16_t count = (v_cel_my - top_line) * (v_cel_mx + 1);
 
     uint16_t *src = &ddraigvga_screenbuf[src_vram];
     uint16_t *dst = &ddraigvga_screenbuf[dest_vram];

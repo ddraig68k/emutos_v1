@@ -13,7 +13,7 @@
 #ifndef NLS_H
 #define NLS_H
 
-#include "i18nconf.h"
+#include <i18nconf.h>
 
 /* the gettext-like macros */
 

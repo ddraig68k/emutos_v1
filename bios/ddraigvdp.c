@@ -9,6 +9,7 @@
 
 uint32_t g_vdp_reg_base = 0;
 uint16_t *g_vdp_memory_base = 0;
+uint16_t *g_vdp_textmem_base = 0;
 
 #define TILE_BANK_SHIFT(n)   ((n) * 3)   /* 4 tile layers, 3 bits each */
 #define TILE_BANK_MASK(n)    (0x07 << TILE_BANK_SHIFT(n))
@@ -22,10 +23,12 @@ void vdp_init(uint32_t regaddr, uint32_t memaddr)
     // Reset pointers to 0
     
     g_vdp_reg_base = regaddr;
-    g_vdp_memory_base = (uint16_t *)memaddr;
+    g_vdp_memory_base = g_vdp_textmem_base = (uint16_t *)memaddr;
 
     vdp_set_bitmap_palette(0);
     vdp_set_framebuffer_addr(0);
+    vdp_set_drawbase_addr(0);
+    vdp_set_text_base(0);
 
     vdp_disable_all_sprites();
     vdp_set_sprite_palette(0);
@@ -63,7 +66,6 @@ void vdp_init(uint32_t regaddr, uint32_t memaddr)
     vdp_tilemap4_scroll_x(0);
     vdp_tilemap4_scroll_y(0);
     vdp_tilemap4_linescr_mode(0);
-
 }
 
 uint16_t vdp_get_status(void)
@@ -130,34 +132,37 @@ void vdp_wait_vblank_clear(void)
     }
 }
 
+void vdp_set_text_base(uint32_t addr)
+{
+    uint32_t word_addr = addr >> 1;
+
+    VDP_REG_WRITE(REG_TEXT_BASE_L, word_addr & 0xFFFF);
+    VDP_REG_WRITE(REG_TEXT_BASE_H, (word_addr >> 16) & 0x000F);
+    g_vdp_textmem_base = g_vdp_memory_base + (word_addr & 0x7FFFF);
+}
+
 void vdp_clear_text(void)
 {
     int count = VDP_TEXTBUF_SIZE;
-    VDP_REG_WRITE(REG_TEXT_ADDR, 0);  // Set the text buffer address
+    uint16_t cell = vdp_make_text_cell(' ', VDP_TEXT_FG_WHITE, 0);
 
     while (count--)
-    {
-        VDP_REG_WRITE(REG_TEXT_DATA, vdp_make_text_cell(' ', VDP_TEXT_FG_WHITE, 0));
-    }
+        g_vdp_textmem_base[count] = cell;
 }
 
 void vdp_write_text(uint16_t posx, uint16_t posy, const char *text)
 {
-    uint16_t pos = (posy * 80) + posx;
+    uint32_t pos = (posy * 80) + posx;
 
-    VDP_REG_WRITE(REG_TEXT_ADDR, pos);
     while (*text != 0)
-    {
-        VDP_REG_WRITE(REG_TEXT_DATA, vdp_make_text_cell((uint8_t)*text++, VDP_TEXT_FG_WHITE, 0));
-    }
+        g_vdp_textmem_base[pos++] = vdp_make_text_cell((uint8_t)*text++, VDP_TEXT_FG_WHITE, 0);
 }
 
 void vdp_write_char(uint16_t posx, uint16_t posy, uint16_t text)
 {
-    uint16_t pos = (posy * 80) + posx;
+    uint32_t pos = (posy * 80) + posx;
 
-    VDP_REG_WRITE(REG_TEXT_ADDR, pos);
-    VDP_REG_WRITE(REG_TEXT_DATA, text);
+    g_vdp_textmem_base[pos] = text;
 }
 
 void vdp_cursor_pos(int x, int y)
