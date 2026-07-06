@@ -24,9 +24,64 @@
 
 #include "geminit.h"
 #include "gemasm.h"
+#include "geminput.h"
 #include "gempd.h"
 
+#include "biosext.h"
 #include "string.h"
+
+static BOOL get_expected_process_layout(AESPD *pd, WORD *slot, UDA **uda, CDA **cda)
+{
+    WORD i;
+
+    for (i = 0; i < totpds; i++)
+    {
+        AESPD *candidate = pd_index(i);
+
+        if (candidate == pd)
+        {
+            if (slot)
+                *slot = i;
+            if (uda)
+                *uda = (i < 2) ? &D.g_int[i].a_uda : &D.g_acc[i-2].a_uda;
+            if (cda)
+                *cda = (i < 2) ? &D.g_int[i].a_cda : &D.g_acc[i-2].a_cda;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+void aes_validate_process(const char *where, AESPD *pd)
+{
+    WORD slot = -1;
+    UDA *expected_uda = NULL;
+    CDA *expected_cda = NULL;
+
+    if (!pd || (pd == (AESPD *)-1)
+        || !get_expected_process_layout(pd, &slot, &expected_uda, &expected_cda))
+    {
+        kprintf("AES dbg: invalid process at %s: pd=%p rlr=%p gl_mowner=%p ctl_pd=%p\n",
+                where, pd, rlr, gl_mowner, ctl_pd);
+        kprintf("AES dbg: totpds=%d num_accs=%d curpid=%d D=%p g_acc=%p\n",
+                totpds, num_accs, curpid, &D, D.g_acc);
+        panic("AES process corruption at %s\n", where);
+    }
+
+    if ((pd->p_uda != expected_uda) || (pd->p_cda != expected_cda))
+    {
+        kprintf("AES dbg: corrupt process at %s: slot=%d pd=%p pid=%d stat=%04x\n",
+                where, slot, pd, pd->p_pid, pd->p_stat);
+        kprintf("AES dbg: expected uda=%p cda=%p, actual uda=%p cda=%p\n",
+                expected_uda, expected_cda, pd->p_uda, pd->p_cda);
+        kprintf("AES dbg: p_link=%p p_thread=%p p_ldaddr=%08lx qdq=%p qnq=%p\n",
+                pd->p_link, pd->p_thread, pd->p_ldaddr, pd->p_qdq, pd->p_qnq);
+        kprintf("AES dbg: rlr=%p gl_mowner=%p ctl_pd=%p D=%p g_acc=%p\n",
+                rlr, gl_mowner, ctl_pd, &D, D.g_acc);
+        panic("AES process corruption at %s\n", where);
+    }
+}
 
 /* returns the AESPD for the given index */
 AESPD *pd_index(WORD i)

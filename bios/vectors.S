@@ -25,6 +25,9 @@
         .globl  _check_read_byte
 #endif
         .globl  _int_vbl
+#if CONF_WITH_DDRAIGVGA_CONSOLE
+        .globl  _ddraig_vbl
+#endif
 #if CONF_WITH_ATARI_VIDEO
         .globl  _int_hbl
 #endif
@@ -101,10 +104,6 @@
         .extern _xbios_do_unimpl
         .extern _kcl_hook
         .extern _int_ikbd_duart
-
-#ifdef CONF_WITH_DDRAIGVGA_CONSOLE
-        .extern  _ddraigvga_base
-#endif
 
         .text
 
@@ -336,6 +335,23 @@ is_ipl:
  */
 
 _int_vbl:
+        jbsr    vbl_common
+
+#if CONF_WITH_ATARI_VIDEO || CONF_WITH_VBL_RTE
+        rte
+#else
+        rts
+#endif
+
+#if CONF_WITH_DDRAIGVGA_CONSOLE
+_ddraig_vbl:
+        jbsr    vbl_common
+        # Clear the gfxvga VBL interrupt (write status register)
+        move.w  #4,0xf7f500
+        rte
+#endif
+
+vbl_common:
         addq.l  #1, _frclock.w          // increase num of happened ints
 #ifdef __mcoldfire__
         move.l  d0, -(sp)               // ColdFire specific
@@ -498,16 +514,7 @@ vbl_end:
         addq.w  #1,_vblsem.w
 #endif
 
-#ifdef CONF_WITH_DDRAIGVGA_CONSOLE
-        # Clear the gfxvga VBL interrupt (write status register)
-        move.w #4,0xf7f500              //_ddraigvga_base
-#endif
-
-#if CONF_WITH_ATARI_VIDEO || CONF_WITH_VBL_RTE
-        rte
-#else
         rts
-#endif
 
 // ==== Timer C interrupt handler ============================================
 

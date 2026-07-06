@@ -135,6 +135,7 @@
 
 
 UBYTE vt8242_init(void);
+void vt82c42_poll_mouse(void);
 void vt82c42_debug_dump_counters(void);
 
 

@@ -37,6 +37,9 @@
 #include "gemdosif.h"
 
 #include "asm.h"
+#if CONF_WITH_VT82C42
+#include "vt82c42.h"
+#endif
 
 #define KEYMASK 0xffff0000L             /* for comparing data to KEYSTOP */
 #define KEYSTOP 0x2b1c0000L             /* control-backslash */
@@ -162,10 +165,15 @@ void chkkbd(void)
     if (gl_play)
         return;
 
+#if CONF_WITH_VT82C42
+    vt82c42_poll_mouse();
+#endif
+
     kstat = gsx_kstate();
     achar = 0;
 
     /* only get a key if there's room in the buffer */
+    aes_validate_process("chkkbd gl_mowner", gl_mowner);
     if (gl_mowner->p_cda->c_q.c_cnt < KBD_SIZE)
         achar = gsx_char();     /* returns 0 if no key available */
 
@@ -249,5 +257,6 @@ void disp(void)
      *      3) returns to appropriate address
      * so we'll never return from this
      */
+    aes_validate_process("disp switchto", rlr);
     switchto(rlr->p_uda);
 }

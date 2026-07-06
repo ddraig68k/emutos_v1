@@ -18,6 +18,15 @@
 #  define ALWAYS_SHOW_INITINFO 1
 # endif
 
+/*
+ * The Ddraig target normally ships without AES, but when AES/desktop support
+ * is enabled it is safer to use the larger stack size already used by other
+ * non-Atari targets.  AES_STACK_SIZE is specified in LONGs, so 2048 = 8 KiB.
+ */
+# ifndef AES_STACK_SIZE
+#  define AES_STACK_SIZE 2048
+# endif
+
 # ifndef CONF_STRAM_SIZE
 #  define CONF_STRAM_SIZE (6<<20)
 # endif

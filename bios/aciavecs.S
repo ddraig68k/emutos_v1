@@ -455,6 +455,11 @@ kbdindex:
 kbdbuf: .ds.b   8   // buffer where packets are being reconstructed
 joybuf: .ds.b   3
 
+        .even
+        .globl  _ikbd_reset_drops
+_ikbd_reset_drops:
+        .ds.l   1   // packets dropped by the in_packet corruption guard
+
         .text
 
 _kbdvec:
@@ -582,6 +587,8 @@ in_packet:
         moveq   #0,d1
 #endif
         move.w  kbdindex,d1
+        cmp.w   #8-1,d1         // past the end of kbdbuf means the state
+        jhi     in_packet_reset // machine is corrupt: drop the packet
         lea     kbdbuf,a0
 #ifdef __mcoldfire__
         move.b  d0,0(a0,d1.l)
@@ -600,6 +607,11 @@ in_packet:
         jeq     got_packet
         addq.w  #1,kbdindex
 #endif
+        rts
+
+in_packet_reset:
+        addq.l  #1,_ikbd_reset_drops
+        clr.b   ikbdstate
         rts
 
 // now I've got a full packet in buffer kbdbuf, and d0.b is the last byte received

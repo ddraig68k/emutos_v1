@@ -36,6 +36,12 @@
         .extern _run_accs_and_desktop
         .extern _disable_interrupts
         .extern _rlr
+
+#if CONF_DEBUG_AES_STACK
+# define PEXEC_STACKRESERVE 0x200
+#else
+# define PEXEC_STACKRESERVE 0x50
+#endif
         .extern _enable_interrupts
 
         .text
@@ -215,7 +221,7 @@ _dos_exec:
         movea.l PD_UDA(a0),a0
         move.l  UDA_SPSUPER(a0),-(sp)   // Save rlr->p_uda->u_spsuper
         movea.l sp,a1
-        suba.l  #0x50,a1                // Adjust the stack (see above)
+        suba.l  #PEXEC_STACKRESERVE,a1  // Adjust the stack (see above)
         move.l  a1,UDA_SPSUPER(a0)
         jsr     _enable_interrupts
 

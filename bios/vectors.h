@@ -28,6 +28,9 @@ void init_acia_vecs(void);
 void int_hbl(void);
 #endif
 void int_vbl(void);
+#if CONF_WITH_DDRAIGVGA_CONSOLE
+void ddraig_vbl(void);
+#endif
 void int_linea(void);
 void int_timerc(void);
 

@@ -11,6 +11,7 @@
 
 #include "emutos.h"
 #include "ikbd.h"
+#include "kprint.h"
 #include "vectors.h"
 #include "asm.h"
 #include "tosvars.h"
@@ -64,16 +65,27 @@ static void vt_flush(void);
 
 void __attribute__((interrupt)) vt_interrupt_handler(void);
 void vt_process_scancode(UBYTE sc);
-void vt_process_mouse(int8_t *packet);
+static void vt_process_mouse(int8_t *packet);
 void vt_handle_mouse(UBYTE data);
+static void vt_flush_mouse_packet(void);
+
+extern volatile ULONG ikbd_reset_drops;   /* in aciavecs.S: in_packet guard */
 
 static UBYTE g_key_mode = 0;
+static UBYTE mouse_pending;
+static UBYTE mouse_pending_buttons;
+static WORD mouse_pending_dx;
+static WORD mouse_pending_dy;
 
 #if VT82C42_DEBUG_COUNTERS
 static volatile ULONG dbg_irq_no_obf;
 static volatile ULONG dbg_irq_max_bytes;
 static volatile ULONG dbg_mouse_bad_sync;
 static volatile ULONG dbg_mouse_overflow_drop;
+static volatile ULONG dbg_mouse_packet_in;
+static volatile ULONG dbg_mouse_packet_out;
+static volatile ULONG dbg_mouse_packet_coalesced;
+static volatile ULONG dbg_mouse_delta_saturated;
 static volatile ULONG dbg_scancode_proto_drop;
 static volatile ULONG dbg_scancode_oob_drop;
 static volatile ULONG dbg_scancode_unmapped_drop;
@@ -84,6 +96,10 @@ static void vt82c42_debug_reset_counters(void)
     dbg_irq_max_bytes = 0;
     dbg_mouse_bad_sync = 0;
     dbg_mouse_overflow_drop = 0;
+    dbg_mouse_packet_in = 0;
+    dbg_mouse_packet_out = 0;
+    dbg_mouse_packet_coalesced = 0;
+    dbg_mouse_delta_saturated = 0;
     dbg_scancode_proto_drop = 0;
     dbg_scancode_oob_drop = 0;
     dbg_scancode_unmapped_drop = 0;
@@ -91,10 +107,13 @@ static void vt82c42_debug_reset_counters(void)
 
 void vt82c42_debug_dump_counters(void)
 {
-    kprintf("vt82c42 dbg: irq_no_obf=%lu irq_max_bytes=%lu mouse_bad_sync=%lu mouse_overflow=%lu\n",
+    kcprintf("vt82c42 dbg: irq_no_obf=%lu irq_max_bytes=%lu mouse_bad_sync=%lu mouse_overflow=%lu\n",
         dbg_irq_no_obf, dbg_irq_max_bytes, dbg_mouse_bad_sync, dbg_mouse_overflow_drop);
-    kprintf("vt82c42 dbg: sc_proto_drop=%lu sc_oob_drop=%lu sc_unmapped_drop=%lu\n",
+    kcprintf("vt82c42 dbg: mouse_in=%lu mouse_out=%lu mouse_coalesced=%lu mouse_sat=%lu\n",
+        dbg_mouse_packet_in, dbg_mouse_packet_out, dbg_mouse_packet_coalesced, dbg_mouse_delta_saturated);
+    kcprintf("vt82c42 dbg: sc_proto_drop=%lu sc_oob_drop=%lu sc_unmapped_drop=%lu\n",
         dbg_scancode_proto_drop, dbg_scancode_oob_drop, dbg_scancode_unmapped_drop);
+    kcprintf("ikbd dbg: reset_drops=%lu\n", ikbd_reset_drops);
 }
 #else
 static void vt82c42_debug_reset_counters(void)
@@ -330,6 +349,105 @@ static void vt_flush(void)
     }
 }
 
+static WORD vt_mouse_saturating_add(WORD acc, WORD delta)
+{
+    LONG value = (LONG)acc + delta;
+
+    if (value > 127) {
+#if VT82C42_DEBUG_COUNTERS
+        dbg_mouse_delta_saturated++;
+#endif
+        return 127;
+    }
+
+    if (value < -127) {
+#if VT82C42_DEBUG_COUNTERS
+        dbg_mouse_delta_saturated++;
+#endif
+        return -127;
+    }
+
+    return (WORD)value;
+}
+
+static void vt_emit_mouse_packet(UBYTE buttons, WORD dx, WORD dy)
+{
+    UBYTE packet0 = MOUSE_REL_POS_REPORT | buttons;
+
+    KDEBUG(("Mouse: X=%d Y=%d B=%d\n", dx, dy, buttons));
+
+    call_ikbdraw(packet0);
+    call_ikbdraw((UBYTE)dx);
+    call_ikbdraw((UBYTE)dy);
+}
+
+static void vt_queue_mouse_packet(int8_t *process)
+{
+    UBYTE buttons = 0;
+    UBYTE status = (UBYTE)process[0];
+    WORD dx = process[1];
+    WORD dy = -(WORD)process[2];
+
+#if VT82C42_DEBUG_COUNTERS
+    dbg_mouse_packet_in++;
+    if (mouse_pending)
+        dbg_mouse_packet_coalesced++;
+#endif
+
+    if (status & 0x01)
+        buttons |= LEFT_BUTTON_DOWN;
+    if (status & 0x02)
+        buttons |= RIGHT_BUTTON_DOWN;
+
+    mouse_pending_dx = vt_mouse_saturating_add(mouse_pending_dx, dx);
+    mouse_pending_dy = vt_mouse_saturating_add(mouse_pending_dy, dy);
+    mouse_pending_buttons = buttons;
+    mouse_pending = TRUE;
+}
+
+static void vt_flush_mouse_packet(void)
+{
+    UBYTE buttons;
+    WORD dx;
+    WORD dy;
+    WORD old_sr;
+
+    old_sr = set_sr(0x2700);
+    if (!mouse_pending)
+    {
+        set_sr(old_sr);
+        return;
+    }
+
+    buttons = mouse_pending_buttons;
+    dx = mouse_pending_dx;
+    dy = mouse_pending_dy;
+
+    mouse_pending = FALSE;
+    mouse_pending_buttons = 0;
+    mouse_pending_dx = 0;
+    mouse_pending_dy = 0;
+
+#if VT82C42_DEBUG_COUNTERS
+    dbg_mouse_packet_out++;
+#endif
+
+    /*
+     * Emit while interrupts are still masked.  ikbdraw is a non-reentrant
+     * state machine, and mousevec (fVDI's cursor engine) assumes the
+     * atomicity it gets on Atari hardware, where this whole chain runs at
+     * IPL 6 inside the ACIA interrupt.  Restoring SR first would let the
+     * VBL/DUART/PS2 interrupts preempt fVDI mid-draw.
+     */
+    vt_emit_mouse_packet(buttons, dx, dy);
+    set_sr(old_sr);
+}
+
+void vt82c42_poll_mouse(void)
+{
+    vt_flush_mouse_packet();
+}
+
 //	keyboard interrupt handler
 void __attribute__((interrupt)) vt_interrupt_handler(void)
 {
@@ -363,6 +481,7 @@ void __attribute__((interrupt)) vt_interrupt_handler(void)
     if (n == VT82C42_MAX_IRQ_BYTES)
         dbg_irq_max_bytes++;
 #endif
+
 }
 
 UBYTE vt8242_init(void)
@@ -376,6 +495,10 @@ UBYTE vt8242_init(void)
     /* disable interrupts */
     old_sr = set_sr(0x2700);
     vt82c42_debug_reset_counters();
+    mouse_pending = FALSE;
+    mouse_pending_buttons = 0;
+    mouse_pending_dx = 0;
+    mouse_pending_dy = 0;
 
     /* Disable keyboard/mouse ports and interrupts while probing the controller. */
     cfg = vt_get_cmd_byte();
@@ -471,27 +594,9 @@ UBYTE vt8242_init(void)
     return 1;
 }
 
-void vt_process_mouse(int8_t *process)
+static void vt_process_mouse(int8_t *process)
 {
-    int8_t packet[3];
-    UBYTE status = (UBYTE)process[0];
-
-
-    packet[0] = MOUSE_REL_POS_REPORT;
-    if (status & 0x01)
-        packet[0] |= LEFT_BUTTON_DOWN;
-    if (status & 0x02)
-        packet[0] |= RIGHT_BUTTON_DOWN;
-    // Mouse positions
-    packet[1] = process[1];
-    packet[2] = -process[2];
-
-    KDEBUG(("Mouse: X=%d Y=%d B=%d\n", (int)packet[1], (int)packet[2], packet[0] & 0x03));
-
-    /* Feed an IKBD relative-mouse packet through the common parser. */
-    call_ikbdraw((UBYTE)packet[0]);
-    call_ikbdraw((UBYTE)packet[1]);
-    call_ikbdraw((UBYTE)packet[2]);
+    vt_queue_mouse_packet(process);
 }
 
 void vt_handle_mouse(UBYTE data)

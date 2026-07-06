@@ -35,10 +35,51 @@
 #include "amiga.h"
 #if defined(MACHINE_DDRAIG68K)
 #include "vt82c42.h"
+extern ULONG aes_mouse_stack_busy_drop;
 #endif
 
 #define DISPLAY_INSTRUCTION_AT_PC   1   /* set to 1 for extra info from dopanic() */
 #define DISPLAY_STACK               1   /* set to 1 for extra info from dopanic() */
+
+static BOOL pointer_has_bytes(const void *ptr, ULONG bytes,
+                              const void *start, const void *end)
+{
+    ULONG addr = (ULONG)ptr;
+    ULONG start_addr = (ULONG)start;
+    ULONG end_addr = (ULONG)end;
+
+    if (!ptr || IS_ODD_POINTER(ptr) || (end_addr < start_addr))
+        return FALSE;
+    if (addr < start_addr)
+        return FALSE;
+    if (bytes > (end_addr - start_addr))
+        return FALSE;
+
+    return addr <= (end_addr - bytes);
+}
+
+static BOOL pc_points_to_known_text(const UWORD *pc)
+{
+    if (pointer_has_bytes(pc, 3 * sizeof(UWORD), &os_header, _etext))
+        return TRUE;
+
+    if (run && (run->p_tlen > 0)
+        && pointer_has_bytes(pc, 3 * sizeof(UWORD),
+                             run->p_tbase, run->p_tbase + run->p_tlen))
+        return TRUE;
+
+    return FALSE;
+}
+
+static BOOL usp_points_to_valid_stack(const UWORD *usp)
+{
+    if (run && (run->p_hitpa > run->p_lowtpa)
+        && pointer_has_bytes(usp, 16 * sizeof(UWORD),
+                             run->p_lowtpa, run->p_hitpa))
+        return TRUE;
+
+    return pointer_has_bytes(usp, 16 * sizeof(UWORD), membot, phystop);
+}
 
 #if STONX_NATIVE_PRINT
 
@@ -539,10 +580,14 @@ void dopanic(const char *fmt, ...)
      * (a) it is probably only useful for illegal instruction exceptions
      * (b) it could cause a recursive error
      */
-    if (!IS_ODD_POINTER(pc))    /* precaution if running on 68000 */
+    if (pc_points_to_known_text(pc))
     {
         kcprintf("Instruction at PC: %04x %04x %04x\n",
                  pc[0], pc[1], pc[2]);
+    }
+    else if (pc)
+    {
+        kcprintf("Instruction at PC: unavailable\n");
     }
 #endif
 
@@ -574,22 +619,32 @@ void dopanic(const char *fmt, ...)
              proc_stk[8], proc_stk[9], proc_stk[10], proc_stk[11]);
     kcprintf("       %04x %04x %04x %04x\n\n",
              proc_stk[12], proc_stk[13], proc_stk[14], proc_stk[15]);
-    if (!(sr & 0x2000) && ((proc_usp & 1) == 0))
+    if (!(sr & 0x2000))
     {
         const UWORD *user_stk = (const UWORD *)proc_usp;
-        kcprintf("USP  : %04x %04x %04x %04x\n",
-                 user_stk[0], user_stk[1], user_stk[2], user_stk[3]);
-        kcprintf("       %04x %04x %04x %04x\n",
-                 user_stk[4], user_stk[5], user_stk[6], user_stk[7]);
-        kcprintf("       %04x %04x %04x %04x\n",
-                 user_stk[8], user_stk[9], user_stk[10], user_stk[11]);
-        kcprintf("       %04x %04x %04x %04x\n\n",
-                 user_stk[12], user_stk[13], user_stk[14], user_stk[15]);
+        if (usp_points_to_valid_stack(user_stk))
+        {
+            kcprintf("USP  : %04x %04x %04x %04x\n",
+                     user_stk[0], user_stk[1], user_stk[2], user_stk[3]);
+            kcprintf("       %04x %04x %04x %04x\n",
+                     user_stk[4], user_stk[5], user_stk[6], user_stk[7]);
+            kcprintf("       %04x %04x %04x %04x\n",
+                     user_stk[8], user_stk[9], user_stk[10], user_stk[11]);
+            kcprintf("       %04x %04x %04x %04x\n\n",
+                     user_stk[12], user_stk[13], user_stk[14], user_stk[15]);
+        }
+        else
+        {
+            kcprintf("USP  : unavailable\n\n");
+        }
     }
 #endif
 
 #ifdef CONF_WITH_VT82C42
     vt82c42_debug_dump_counters();
+#endif
+#if defined(MACHINE_DDRAIG68K)
+    kcprintf("AES mouse stack busy drops=%lu\n", aes_mouse_stack_busy_drop);
 #endif
 
     if (wrap)
@@ -597,12 +652,29 @@ void dopanic(const char *fmt, ...)
 
     if (run)
     {
+        UBYTE *pc_addr = (UBYTE *)pc;
+
         kcprintf("basepage=%08lx\n",
                  (ULONG)run);
         kcprintf("text=%08lx data=%08lx bss=%08lx\n",
                  (ULONG)run->p_tbase, (ULONG)run->p_dbase, (ULONG)run->p_bbase);
-        if (pc && ((UBYTE *)pc >= run->p_tbase) && ((UBYTE *)pc < (run->p_tbase + run->p_tlen)))
-            kcprintf("Crash at text+%08lx\n", (UBYTE *)pc - run->p_tbase);
+        kcprintf("tlen=%08lx dlen=%08lx blen=%08lx\n",
+                 run->p_tlen, run->p_dlen, run->p_blen);
+        kcprintf("lowtpa=%08lx hitpa=%08lx\n",
+                 (ULONG)run->p_lowtpa, (ULONG)run->p_hitpa);
+
+        if (pc && (run->p_tlen > 0)
+            && (pc_addr >= run->p_tbase) && (pc_addr < (run->p_tbase + run->p_tlen)))
+            kcprintf("Crash at text+%08lx\n", pc_addr - run->p_tbase);
+        else if (pc && (run->p_dlen > 0)
+                 && (pc_addr >= run->p_dbase) && (pc_addr < (run->p_dbase + run->p_dlen)))
+            kcprintf("Crash at data+%08lx\n", pc_addr - run->p_dbase);
+        else if (pc && (run->p_blen > 0)
+                 && (pc_addr >= run->p_bbase) && (pc_addr < (run->p_bbase + run->p_blen)))
+            kcprintf("Crash at bss+%08lx\n", pc_addr - run->p_bbase);
+        else if (pc && (run->p_hitpa > run->p_lowtpa)
+                 && (pc_addr >= run->p_lowtpa) && (pc_addr < run->p_hitpa))
+            kcprintf("Crash at tpa+%08lx\n", pc_addr - run->p_lowtpa);
     }
 
     /* allow interrupts so we get keypresses */
