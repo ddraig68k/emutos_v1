@@ -1141,7 +1141,7 @@ void kbd_init(void)
     lisa_kbd_init();
 #endif
 
-#ifdef CONF_WITH_VT82C42
+#if CONF_WITH_VT82C42
     vt8242_init();
 #endif
 

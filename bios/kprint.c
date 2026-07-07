@@ -640,7 +640,7 @@ void dopanic(const char *fmt, ...)
     }
 #endif
 
-#ifdef CONF_WITH_VT82C42
+#if CONF_WITH_VT82C42
     vt82c42_debug_dump_counters();
 #endif
 #if defined(MACHINE_DDRAIG68K)

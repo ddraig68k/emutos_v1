@@ -7,7 +7,7 @@
 
 /* #define ENABLE_KDEBUG */
 
-#ifdef CONF_WITH_VT82C42
+#if CONF_WITH_VT82C42
 
 #include "emutos.h"
 #include "ikbd.h"

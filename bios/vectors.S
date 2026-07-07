@@ -25,7 +25,7 @@
         .globl  _check_read_byte
 #endif
         .globl  _int_vbl
-#if CONF_WITH_DDRAIGVGA_CONSOLE
+#if CONF_WITH_DDRAIGVGA_CONSOLE || CONF_WITH_DDRAIGVGA_DESKTOP
         .globl  _ddraig_vbl
 #endif
 #if CONF_WITH_ATARI_VIDEO
@@ -343,7 +343,7 @@ _int_vbl:
         rts
 #endif
 
-#if CONF_WITH_DDRAIGVGA_CONSOLE
+#if CONF_WITH_DDRAIGVGA_CONSOLE || CONF_WITH_DDRAIGVGA_DESKTOP
 _ddraig_vbl:
         jbsr    vbl_common
         # Clear the gfxvga VBL interrupt (write status register)

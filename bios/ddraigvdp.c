@@ -2,7 +2,7 @@
 
 /* #define ENABLE_KDEBUG */
 
-#if defined(CONF_WITH_DDRAIGVGA_CONSOLE)
+#if CONF_WITH_DDRAIGVGA_CONSOLE || CONF_WITH_DDRAIGVGA_DESKTOP
 
 #include <stdbool.h>
 #include "ddraigvdp.h"
@@ -296,6 +296,12 @@ void vdp_draw_vline(uint16_t x, uint16_t y)
     VDP_REG_WRITE(REG_PARAM_DATA1, y);
     vdp_wait_busy();
 	VDP_REG_WRITE(REG_COMMAND, CMD_DRAW_VLINE);
+}
+
+void vdp_write_palette_entry(uint16_t index, uint16_t value)
+{
+    VDP_REG_WRITE(REG_PALETTE_IDX, index);
+    VDP_REG_WRITE(REG_PALETTE_DATA, value);
 }
 
 void vdp_set_bitmap_palette(uint16_t bank)

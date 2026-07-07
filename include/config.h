@@ -1322,6 +1322,26 @@
 # define CONF_WITH_XOSERA_CONSOLE 0
 #endif
 
+/*
+ * CONF_WITH_DDRAIGVGA_CONSOLE enables the VDP text-cell console on the
+ * DdraigVGA card; CONF_WITH_DDRAIGVGA_DESKTOP instead runs the standard
+ * framebuffer console and native VDI in its 640x480x1bpp bitmap mode.
+ */
+#ifndef CONF_WITH_DDRAIGVGA_CONSOLE
+# define CONF_WITH_DDRAIGVGA_CONSOLE 0
+#endif
+#ifndef CONF_WITH_DDRAIGVGA_DESKTOP
+# define CONF_WITH_DDRAIGVGA_DESKTOP 0
+#endif
+
+/*
+ * Set CONF_WITH_VT82C42 to 1 to use the VT82C42 PS/2 keyboard/mouse
+ * controller (Ddraig 68k).
+ */
+#ifndef CONF_WITH_VT82C42
+# define CONF_WITH_VT82C42 0
+#endif
+
 
 /****************************************************
  *  S O F T W A R E   S E C T I O N   -   A E S     *

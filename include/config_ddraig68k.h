@@ -103,8 +103,24 @@
 # ifndef CONF_SERIAL_CONSOLE_POLLING_MODE
 #  define CONF_SERIAL_CONSOLE_POLLING_MODE 0
 # endif
-#ifndef CONF_WITH_DDRAIGVGA_CONSOLE
-# define CONF_WITH_DDRAIGVGA_CONSOLE 1
+/*
+ * DdraigVGA display mode.  With CONF_WITH_DDRAIGVGA_DESKTOP the standard
+ * EmuTOS framebuffer console and native VDI render directly into the
+ * card's 640x480 1bpp bitmap mode, so the GEM desktop runs without fVDI.
+ * Set it to 0 to get the original VDP text-cell console instead (GEM
+ * then requires fVDI).
+ */
+#ifndef CONF_WITH_DDRAIGVGA_DESKTOP
+# define CONF_WITH_DDRAIGVGA_DESKTOP 1
+#endif
+#if CONF_WITH_DDRAIGVGA_DESKTOP
+# ifndef CONF_VRAM_ADDRESS
+#  define CONF_VRAM_ADDRESS 0xA00000UL
+# endif
+#else
+# ifndef CONF_WITH_DDRAIGVGA_CONSOLE
+#  define CONF_WITH_DDRAIGVGA_CONSOLE 1
+# endif
 #endif
 #ifndef CONF_WITH_VT82C42
 # define CONF_WITH_VT82C42 1

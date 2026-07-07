@@ -634,7 +634,7 @@ void screen_init_mode(void)
     xosera_screen_init();
 #endif
 
-#if defined(CONF_WITH_DDRAIGVGA_CONSOLE)
+#if CONF_WITH_DDRAIGVGA_CONSOLE || CONF_WITH_DDRAIGVGA_DESKTOP
     KDEBUG(("DdraigVGA console init\n"));
     VEC_LEVEL1 = ddraig_vbl;
     vblsem = 0;
@@ -838,7 +838,7 @@ void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
     *planes = 1;
     *hz_rez = 640;
     *vt_rez = 240;
-#elif defined(CONF_WITH_DDRAIGVGA_CONSOLE)
+#elif CONF_WITH_DDRAIGVGA_CONSOLE || CONF_WITH_DDRAIGVGA_DESKTOP
     *planes = 1;
     *hz_rez = 640;
     *vt_rez = 480;

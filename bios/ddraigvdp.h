@@ -269,6 +269,7 @@ void vdp_draw_hline(uint16_t x, uint16_t y);
 void vdp_draw_vline(uint16_t x, uint16_t y);
 void vdp_draw_fill_tri(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,  uint16_t x2, uint16_t y2);
 
+void vdp_write_palette_entry(uint16_t index, uint16_t value);
 void vdp_set_bitmap_palette(uint16_t bank);
 void vdp_set_text_palette(uint16_t bank);
 void vdp_set_tile_palette(uint16_t layer, uint16_t bank);
