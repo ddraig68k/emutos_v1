@@ -84,6 +84,47 @@ static const WORD falconmode_from_button[] =        /*     VGA           RGB    
 
 #endif /* CONF_WITH_VIDEL */
 
+#if CONF_WITH_DDRAIGVGA_DESKTOP
+/*
+ *  change_ddraig_rez(): change DdraigVGA desktop mode
+ *
+ *  offers the two modes other than the current one via an alert.
+ *  returns:    0   user cancelled change
+ *              1   user wants to change; newres is updated with new resolution.
+ */
+static int change_ddraig_rez(WORD *newres)
+{
+    /* for each current rez, the two modes offered by the alert buttons */
+    static const struct {
+        WORD cur;
+        const char *alert;
+        WORD choice[2];
+    } dialog[] = {
+        { ST_HIGH,   "[2][ Select screen mode ][640x480x16|320x240x16|Cancel]",
+                     { TT_MEDIUM, ST_LOW } },
+        { TT_MEDIUM, "[2][ Select screen mode ][640x480x1|320x240x16|Cancel]",
+                     { ST_HIGH, ST_LOW } },
+        { ST_LOW,    "[2][ Select screen mode ][640x480x1|640x480x16|Cancel]",
+                     { ST_HIGH, TT_MEDIUM } },
+    };
+    WORD rez = Getrez();
+    WORD i, sel;
+
+    for (i = 0; i < (WORD)ARRAY_SIZE(dialog); i++)
+        if (dialog[i].cur == rez)
+            break;
+    if (i >= (WORD)ARRAY_SIZE(dialog))      /* unknown mode: play safe */
+        return 0;
+
+    sel = form_alert(3, (char *)dialog[i].alert);
+    if ((sel != 1) && (sel != 2))
+        return 0;
+
+    *newres = dialog[i].choice[sel-1];
+    return 1;
+}
+#endif /* CONF_WITH_DDRAIGVGA_DESKTOP */
+
 /*
  *  change_st_rez(): change desktop ST resolution
  *  returns:    0   user cancelled change
@@ -317,6 +358,11 @@ int change_resolution(WORD *newres,WORD *newmode)
 {
 #ifdef MACHINE_AMIGA
     return change_amiga_rez(newres,newmode);
+#endif
+
+#if CONF_WITH_DDRAIGVGA_DESKTOP
+    *newmode = 0;
+    return change_ddraig_rez(newres);
 #endif
 
 #if CONF_WITH_VIDEL

@@ -27,7 +27,6 @@
 #include "gemctrl.h"
 #include "gemmnlib.h"
 #include "gemaplib.h"
-#include "gempd.h"
 #include "geminit.h"
 #include "gemevlib.h"
 #include "gemwmlib.h"
@@ -272,7 +271,6 @@ UWORD dq(CQUEUE *qptr)
  */
 void fq(void)
 {
-    aes_validate_process("fq", rlr);
     while (rlr->p_cda->c_q.c_cnt)
         dq(&rlr->p_cda->c_q);
 }
@@ -294,10 +292,7 @@ void kchange(LONG fdata)
 
     kstate = kstat;
     if (ch)
-    {
-        aes_validate_process("kchange gl_mowner", gl_mowner);
         post_keybd(gl_mowner->p_cda, ch);
-    }
 }
 
 
@@ -490,8 +485,6 @@ static void post_button(AESPD *pd, WORD new, WORD numclicks)
 
 void akbin(EVB *e)
 {
-    aes_validate_process("akbin", rlr);
-
     /* see if already satisfied */
     if (rlr->p_cda->c_q.c_cnt)
         azombie(e, dq(&rlr->p_cda->c_q));

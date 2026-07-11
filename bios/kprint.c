@@ -35,7 +35,6 @@
 #include "amiga.h"
 #if defined(MACHINE_DDRAIG68K)
 #include "vt82c42.h"
-extern ULONG aes_mouse_stack_busy_drop;
 #endif
 
 #define DISPLAY_INSTRUCTION_AT_PC   1   /* set to 1 for extra info from dopanic() */
@@ -642,9 +641,6 @@ void dopanic(const char *fmt, ...)
 
 #if CONF_WITH_VT82C42
     vt82c42_debug_dump_counters();
-#endif
-#if defined(MACHINE_DDRAIG68K)
-    kcprintf("AES mouse stack busy drops=%lu\n", aes_mouse_stack_busy_drop);
 #endif
 
     if (wrap)

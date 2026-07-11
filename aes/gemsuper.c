@@ -453,8 +453,6 @@ static void xif(AESPB *pcrys_blk)
  */
 LONG super(WORD cx, AESPB *pcrys_blk)
 {
-    aes_validate_process("super", rlr);
-
     switch(cx)
     {
     case 200:
@@ -483,8 +481,6 @@ UBYTE* min_pointer = NULL; /* Minimum detected stack pointer, since the beginnin
 /* Called when entering AES trap #2 */
 void trapaes_debug_enter(void)
 {
-    aes_validate_process("trapaes_debug_enter", rlr);
-
     UBYTE* bottom = (UBYTE*)rlr->p_uda->u_super;
     UBYTE* current = (UBYTE*)rlr->p_uda->u_spsuper;
     UBYTE* top = bottom + sizeof rlr->p_uda->u_super;
@@ -504,8 +500,6 @@ void trapaes_debug_enter(void)
 /* Called when exiting AES trap #2 */
 void trapaes_debug_exit(void)
 {
-    aes_validate_process("trapaes_debug_exit", rlr);
-
     UBYTE* bottom = (UBYTE*)rlr->p_uda->u_super;
     UBYTE* current = (UBYTE*)rlr->p_uda->u_spsuper;
     UBYTE* top = bottom + sizeof rlr->p_uda->u_super;

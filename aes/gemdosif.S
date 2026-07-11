@@ -20,16 +20,7 @@
  * as of july/2019, the observed stack usage is about 24 words for
  * the mouse stack and 12 words for the tick stack
  */
-#if defined(MACHINE_DDRAIG68K)
-/*
- * Ddraig debug builds route PS/2 mouse IRQs through the IKBD/VDI/AES mouse
- * path.  Keep plenty of headroom for _far_mcha()->forkq() so the private
- * mouse stack cannot scribble over adjacent AES state.
- */
-#define MOUSE_STACK_SIZE    1024
-#else
 #define MOUSE_STACK_SIZE    48
-#endif
 #define TICK_STACK_SIZE     36
 
         .globl  _disable_interrupts
@@ -45,9 +36,6 @@
 #endif
         .globl  _far_bcha
         .globl  _drawrat
-#if defined(MACHINE_DDRAIG68K)
-        .globl  _aes_mouse_stack_busy_drop
-#endif
 
         .globl  _tiksav
         .globl  _CMP_TICK
@@ -316,11 +304,6 @@ _set_aestrap:
         rts
 
 _far_bcha:
-#if defined(MACHINE_DDRAIG68K)
-        tst.w   gstack_busy
-        jne     bcha_stack_busy
-        move.w  #1,gstack_busy
-#endif
         move.l  sp,gstksave
         lea     gstack,sp
 #ifdef __mcoldfire__
@@ -339,23 +322,9 @@ _far_bcha:
         movem.l (sp)+,d0-d2/a0-a2
 #endif
         movea.l gstksave,sp
-#if defined(MACHINE_DDRAIG68K)
-        clr.w   gstack_busy
-#endif
         rts
-
-#if defined(MACHINE_DDRAIG68K)
-bcha_stack_busy:
-        addq.l  #1,_aes_mouse_stack_busy_drop
-        rts
-#endif
 
 _far_mcha:
-#if defined(MACHINE_DDRAIG68K)
-        tst.w   gstack_busy
-        jne     mcha_stack_busy
-        move.w  #1,gstack_busy
-#endif
         move.l  sp,gstksave
         lea     gstack,sp
 #ifdef __mcoldfire__
@@ -377,16 +346,7 @@ _far_mcha:
         movem.l (sp)+,d0-d2/a0-a2
 #endif
         movea.l gstksave,sp
-#if defined(MACHINE_DDRAIG68K)
-        clr.w   gstack_busy
-#endif
         rts
-
-#if defined(MACHINE_DDRAIG68K)
-mcha_stack_busy:
-        addq.l  #1,_aes_mouse_stack_busy_drop
-        rts
-#endif
 
 #if CONF_WITH_EXTENDED_MOUSE
 /* AES mouse wheel handler called by the VDI */
@@ -486,13 +446,6 @@ _drwaddr:
 
 gstksave:
         .ds.l    1
-
-#if defined(MACHINE_DDRAIG68K)
-gstack_busy:
-        .ds.w    1
-_aes_mouse_stack_busy_drop:
-        .ds.l    1
-#endif
 
 tstksave:
         .ds.l    1

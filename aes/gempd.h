@@ -29,7 +29,4 @@ extern AESPD *pstart(PFVOID pcode, char *pfilespec, LONG ldaddr);
 /* insert the process pi at the end of the process list pointed to by root */
 extern void insert_process(AESPD *pi, AESPD **root);
 
-/* sanity-check an AES process descriptor before dereferencing embedded state */
-extern void aes_validate_process(const char *where, AESPD *pd);
-
 #endif

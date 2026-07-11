@@ -16,4 +16,11 @@ void drvga_scroll_up(void);
 void drvga_scroll_down(void);
 void ddraigvga_screen_init(void);
 
+/* native desktop (CONF_WITH_DDRAIGVGA_DESKTOP) mode/palette interface */
+BOOL ddraigvga_rez_supported(WORD rez);
+void ddraigvga_setrez(WORD rez);
+WORD ddraigvga_setcolor(WORD colorNum, WORD color);
+void ddraigvga_setpalette(const UWORD *palettePtr);
+void ddraigvga_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez);
+
 #endif

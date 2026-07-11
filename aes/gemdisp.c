@@ -173,7 +173,6 @@ void chkkbd(void)
     achar = 0;
 
     /* only get a key if there's room in the buffer */
-    aes_validate_process("chkkbd gl_mowner", gl_mowner);
     if (gl_mowner->p_cda->c_q.c_cnt < KBD_SIZE)
         achar = gsx_char();     /* returns 0 if no key available */
 
@@ -257,6 +256,5 @@ void disp(void)
      *      3) returns to appropriate address
      * so we'll never return from this
      */
-    aes_validate_process("disp switchto", rlr);
     switchto(rlr->p_uda);
 }

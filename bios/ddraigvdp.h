@@ -147,6 +147,7 @@ extern uint16_t *g_vdp_textmem_base;
 #define DISP_DEPTH_4BPP			0x0010
 #define DISP_DEPTH_2BPP			0x0018
 #define DISP_DEPTH_1BPP			0x0020
+#define DISP_DEPTH_PLANAR4		0x0028      // Atari-style interleaved 4-plane
 // Text control 
 #define ENABLE_CURSOR           0x0100
 #define ENABLE_BLINK            0x0200

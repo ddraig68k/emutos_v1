@@ -27,7 +27,6 @@
 #include "geminput.h"
 #include "gemaplib.h"
 #include "gemevlib.h"
-#include "gempd.h"
 
 
 /* Global variables: */
@@ -174,7 +173,6 @@ WORD ev_multi(WORD flags, MOBLK *pmo1, MOBLK *pmo2, LONG tmcount,
     if (flags & MU_KEYBD)
     {
         /* if a character is ready then get it */
-        aes_validate_process("ev_multi MU_KEYBD", rlr);
         pc = &rlr->p_cda->c_q;
         if (pc->c_cnt)
         {

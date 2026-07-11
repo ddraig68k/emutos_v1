@@ -9,6 +9,7 @@
 #include "ddraig_vga.h"
 #include "ddraigvdp.h"
 #include "emutos.h"
+#include "biosdefs.h"
 #include "lineavars.h"
 #include "tosvars.h"
 #include "string.h"
@@ -100,6 +101,138 @@ void drvga_scroll_down(void)
 
 #endif /* CONF_WITH_DDRAIGVGA_CONSOLE */
 
+#if CONF_WITH_DDRAIGVGA_DESKTOP
+
+/*
+ * Native desktop video modes.  The table is indexed by the TOS 'rez'
+ * value; modes with planes==0 are unsupported.  640x480x4 interleaved
+ * planar is exactly the TT-medium layout, so it is reported as such.
+ */
+struct ddraig_mode {
+    UWORD ctrl;         /* VDP control register value */
+    UWORD planes;
+    UWORD hz_rez;
+    UWORD vt_rez;
+};
+
+static const struct ddraig_mode ddraig_mode_table[] = {
+    { DISPMODE_BITMAP | DISP_DEPTH_PLANAR4, 4, 320, 240 },      /* 0: "ST low" */
+    { 0, 0, 0, 0 },                                             /* 1: ST medium: no planar2 */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP, 1, 640, 480 },    /* 2: "ST high" */
+    { 0, 0, 0, 0 },                                             /* 3: Falcon */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_PLANAR4, 4, 640, 480 }, /* 4: TT medium */
+};
+
+static WORD ddraig_cur_rez = ST_HIGH;
+
+/* shadow of the ST(E)-format palette, for Setcolor() readback */
+static UWORD ddraig_shadow_palette[16];
+
+/* default 16-colour palette, ST format (same as Atari TOS) */
+static const UWORD ddraig_default_palette[16] = {
+    0x0777, 0x0700, 0x0070, 0x0770, 0x0007, 0x0707, 0x0077, 0x0555,
+    0x0333, 0x0733, 0x0373, 0x0773, 0x0337, 0x0737, 0x0377, 0x0000
+};
+
+/*
+ * Convert an ST(E) palette word to the card's 5:6:5 format.
+ *
+ * If any gun has its STE extension bit set, the word is decoded as STE
+ * (4 bits per gun, bit 3 the lsb); otherwise as plain ST (3 bits per
+ * gun, 7 = full intensity).  ST-format writers - which include our VDI,
+ * since has_ste_shifter is FALSE - thus get the full brightness range.
+ */
+static UWORD stcol_to_565(UWORD col)
+{
+    UWORD r, g, b;
+
+    if (col & 0x0888) {
+        r = (col >> 8) & 0x0f; r = ((r & 7) << 1) | (r >> 3);
+        g = (col >> 4) & 0x0f; g = ((g & 7) << 1) | (g >> 3);
+        b = col & 0x0f;        b = ((b & 7) << 1) | (b >> 3);
+        r = (r << 1) | (r >> 3);    /* 4 -> 5 bits */
+        g = (g << 2) | (g >> 2);    /* 4 -> 6 bits */
+        b = (b << 1) | (b >> 3);
+    } else {
+        r = (col >> 8) & 7;
+        g = (col >> 4) & 7;
+        b = col & 7;
+        r = (r << 2) | (r >> 1);    /* 3 -> 5 bits */
+        g = (g << 3) | g;           /* 3 -> 6 bits */
+        b = (b << 2) | (b >> 1);
+    }
+
+    return (r << 11) | (g << 5) | b;
+}
+
+WORD ddraigvga_setcolor(WORD colorNum, WORD color)
+{
+    WORD old;
+
+    colorNum &= 0x0f;
+    old = ddraig_shadow_palette[colorNum];
+    if (color == -1)
+        return old;
+
+    ddraig_shadow_palette[colorNum] = color & 0x0fff;
+    vdp_write_palette_entry(colorNum, stcol_to_565(color));
+
+    return old;
+}
+
+void ddraigvga_setpalette(const UWORD *palettePtr)
+{
+    WORD i;
+
+    for (i = 0; i < 16; i++)
+        ddraigvga_setcolor(i, palettePtr[i]);
+}
+
+BOOL ddraigvga_rez_supported(WORD rez)
+{
+    if (rez < 0 || rez >= (WORD)ARRAY_SIZE(ddraig_mode_table))
+        return FALSE;
+
+    return ddraig_mode_table[rez].planes != 0;
+}
+
+void ddraigvga_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
+{
+    const struct ddraig_mode *m = &ddraig_mode_table[ddraig_cur_rez];
+
+    *planes = m->planes;
+    *hz_rez = m->hz_rez;
+    *vt_rez = m->vt_rez;
+}
+
+void ddraigvga_setrez(WORD rez)
+{
+    const struct ddraig_mode *m;
+
+    if (rez < 0 || rez >= (WORD)ARRAY_SIZE(ddraig_mode_table))
+        return;
+    m = &ddraig_mode_table[rez];
+    if (m->planes == 0)     /* unsupported mode: leave unchanged */
+        return;
+
+    ddraig_cur_rez = rez;
+    sshiftmod = rez;
+
+    if (m->planes == 1) {
+        ddraigvga_setcolor(0, 0x0777);      /* paper white */
+        ddraigvga_setcolor(1, 0x0000);      /* ink black */
+    } else {
+        ddraigvga_setpalette(ddraig_default_palette);
+    }
+
+    /* clear to colour 0 before switching so no stale VRAM is shown */
+    memset((void *)ddraigvga_membase, 0,
+           (LONG)m->hz_rez / 8 * m->vt_rez * m->planes);
+    drvga_write_control_reg(m->ctrl);
+}
+
+#endif /* CONF_WITH_DDRAIGVGA_DESKTOP */
+
 /* Sets system variables so that EmuTOS will use the graphics card */
 static void init_system_vars(void)
 {
@@ -131,18 +264,13 @@ void ddraigvga_screen_init(void)
     vdp_init(ddraigvga_base, ddraigvga_membase);
 
 #if CONF_WITH_DDRAIGVGA_DESKTOP
-    /* 640x480 1bpp bitmap mode: the standard framebuffer console and
-     * the native VDI render directly into the VRAM window; scanout
-     * starts at VRAM offset 0. */
+    /* Native desktop: the standard framebuffer console and the native
+     * VDI render directly into the VRAM window; scanout starts at VRAM
+     * offset 0.  Boot in mono 640x480; the desktop can switch modes
+     * later via Setscreen()/the resolution dialog. */
     vdp_set_framebuffer_addr(0);
     vdp_set_bitmap_palette(0);
-    /* ST mono convention: bit clear = paper, bit set = ink.  0xFFFF and
-     * 0x0000 are white and black in any RGB packing. */
-    vdp_write_palette_entry(0, 0xFFFF);
-    vdp_write_palette_entry(1, 0x0000);
-    /* clear to paper so we don't display VRAM garbage */
-    memset((void *)ddraigvga_membase, 0, DRVGA_BITMAP_SIZE);
-    drvga_write_control_reg(DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP);
+    ddraigvga_setrez(ST_HIGH);
 #else
     {
         int i;
