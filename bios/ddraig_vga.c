@@ -106,7 +106,9 @@ void drvga_scroll_down(void)
 /*
  * Native desktop video modes.  The table is indexed by the TOS 'rez'
  * value; modes with planes==0 are unsupported.  640x480x4 interleaved
- * planar is exactly the TT-medium layout, so it is reported as such.
+ * planar is exactly the TT-medium layout, so it is reported as such;
+ * the other non-Atari geometries borrow otherwise-unused rez slots
+ * (see DDRAIG_REZ_* in ddraig_vga.h).
  */
 struct ddraig_mode {
     UWORD ctrl;         /* VDP control register value */
@@ -116,11 +118,20 @@ struct ddraig_mode {
 };
 
 static const struct ddraig_mode ddraig_mode_table[] = {
-    { DISPMODE_BITMAP | DISP_DEPTH_PLANAR4, 4, 320, 240 },      /* 0: "ST low" */
-    { 0, 0, 0, 0 },                                             /* 1: ST medium: no planar2 */
-    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP, 1, 640, 480 },    /* 2: "ST high" */
-    { 0, 0, 0, 0 },                                             /* 3: Falcon */
-    { DISPMODE_BITMAPHIRES | DISP_DEPTH_PLANAR4, 4, 640, 480 }, /* 4: TT medium */
+    /* 0: "ST low": 320x240, 16 colours */
+    { DISPMODE_BITMAP | DISP_DEPTH_PLANAR4 | DISP_RES_640X480, 4, 320, 240 },
+    /* 1: 800x600, 16 colours */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_PLANAR4 | DISP_RES_800X600, 4, 800, 600 },
+    /* 2: "ST high": 640x480 mono */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP | DISP_RES_640X480, 1, 640, 480 },
+    /* 3: Falcon: unsupported */
+    { 0, 0, 0, 0 },
+    /* 4: TT medium: 640x480, 16 colours */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_PLANAR4 | DISP_RES_640X480, 4, 640, 480 },
+    /* 5: 800x600 mono */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP | DISP_RES_800X600, 1, 800, 600 },
+    /* 6: "TT high": 1024x768 mono */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP | DISP_RES_1024X768, 1, 1024, 768 },
 };
 
 static WORD ddraig_cur_rez = ST_HIGH;

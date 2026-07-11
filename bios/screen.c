@@ -892,6 +892,11 @@ WORD get_palette(void)
     }
 #endif
 
+#if CONF_WITH_DDRAIGVGA_DESKTOP
+    /* the Ddraig mode set doesn't map onto Atari sshiftmod values */
+    return (v_planes == 1) ? 2 : 4096;
+#endif
+
     palette = 4096;         /* for STe/TT colour modes */
 
     switch(sshiftmod) {

@@ -148,6 +148,13 @@ extern uint16_t *g_vdp_textmem_base;
 #define DISP_DEPTH_2BPP			0x0018
 #define DISP_DEPTH_1BPP			0x0020
 #define DISP_DEPTH_PLANAR4		0x0028      // Atari-style interleaved 4-plane
+
+// Resolution select (control register bits 7:6).  Composes with the
+// display mode: full-res bitmap gets the sizes below, doubled bitmap
+// gives 320x240/400x300/512x384, text mode 80x30/100x37/128x48 grids.
+#define DISP_RES_640X480		0x0000
+#define DISP_RES_800X600		0x0040
+#define DISP_RES_1024X768		0x0080
 // Text control 
 #define ENABLE_CURSOR           0x0100
 #define ENABLE_BLINK            0x0200

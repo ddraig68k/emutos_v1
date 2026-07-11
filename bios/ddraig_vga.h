@@ -17,6 +17,15 @@ void drvga_scroll_down(void);
 void ddraigvga_screen_init(void);
 
 /* native desktop (CONF_WITH_DDRAIGVGA_DESKTOP) mode/palette interface */
+
+/*
+ * Ddraig rez assignments beyond the standard ones (ST_LOW=320x240x16,
+ * ST_HIGH=640x480x1, TT_MEDIUM=640x480x16, TT_HIGH=1024x768x1): the
+ * otherwise-unused slots 1 and 5 carry the 800x600 modes.
+ */
+#define DDRAIG_REZ_800_COL      1   /* 800x600, 16 colours */
+#define DDRAIG_REZ_800_MONO     5   /* 800x600, mono */
+
 BOOL ddraigvga_rez_supported(WORD rez);
 void ddraigvga_setrez(WORD rez);
 WORD ddraigvga_setcolor(WORD colorNum, WORD color);
