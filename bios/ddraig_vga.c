@@ -130,8 +130,8 @@ static const struct ddraig_mode ddraig_mode_table[] = {
     { DISPMODE_BITMAPHIRES | DISP_DEPTH_PLANAR4 | DISP_RES_640X480, 4, 640, 480 },
     /* 5: 800x600 mono */
     { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP | DISP_RES_800X600, 1, 800, 600 },
-    /* 6: "TT high": 1024x768 mono */
-    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP | DISP_RES_1024X768, 1, 1024, 768 },
+    /* 6: "TT high": 1280x720 mono (widescreen test; was 1024x768) */
+    { DISPMODE_BITMAPHIRES | DISP_DEPTH_1BPP | DISP_RES_1280X720, 1, 1280, 720 },
 };
 
 static WORD ddraig_cur_rez = ST_HIGH;

@@ -155,6 +155,7 @@ extern uint16_t *g_vdp_textmem_base;
 #define DISP_RES_640X480		0x0000
 #define DISP_RES_800X600		0x0040
 #define DISP_RES_1024X768		0x0080
+#define DISP_RES_1280X720		0x00C0      // was reserved; widescreen test
 // Text control 
 #define ENABLE_CURSOR           0x0100
 #define ENABLE_BLINK            0x0200
