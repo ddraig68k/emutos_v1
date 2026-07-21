@@ -45,5 +45,4 @@ void clock_init(void);
 void settime(LONG time);
 LONG gettime(void);
 
-
 #endif /* CLOCK_H */

@@ -559,7 +559,7 @@ static int ide_interface_exists(WORD ifnum, LONG timeout)
     volatile struct IDE *twisted_iface = (volatile struct IDE *)(((ULONG)ifinfo[ifnum].base_address)-1);
     enum ide_if_status regular_iface_status = IDE_IF_NOTCHECKED;
     enum ide_if_status twisted_iface_status = IDE_IF_NOTPRESENT;
-#if !defined(MACHINE_TINY68K) && !defined(MACHINE_ROBERTS7531) && !defined(MACHINE_MEGA_68000) && !defined(MACHINE_DDRAIG68K)
+#if !defined(MACHINE_MEGA_68000) && !defined(MACHINE_DDRAIG68K)
     BOOL allow_twisted = check_read_byte((long)&twisted_iface->control);
 #else
     BOOL allow_twisted = FALSE;
@@ -844,7 +844,14 @@ static void ide_detect_devices(UWORD ifnum)
 
     IDE_WRITE_CONTROL(interface,IDE_CONTROL_nIEN);    /* no interrupts please */
 
-    /* initial check for devices */
+    /*
+     * initial check for devices
+     * Note that by itself this is not a sufficient way to detect the presence
+     * of device 1. According to the ATA standards (section on "Device 0 only
+     * configurations"), a device 0 might respond for device 1. For proper
+     * device detection, the recheck below is needed, that takes into account
+     * the signature and the status register.
+     */
     for (i = 0; i < 2; i++) {
         ide_select_device(interface,i);
         set_start_count(interface,0xaa,0x55);

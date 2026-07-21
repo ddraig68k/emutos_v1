@@ -73,9 +73,7 @@ void font_set_default(void)
 {
     Fonthead *font;
 
-#if CONF_WITH_DDRAIGVGA_CONSOLE || CONF_WITH_DDRAIGVGA_DESKTOP
-    font = &fon8x16;
-#elif CONF_SERIAL_CONSOLE
+#ifdef CONF_SERIAL_CONSOLE
     font = &fon8x8;
 #else
     font = (V_REZ_VT < 400) ? &fon8x8 : &fon8x16;

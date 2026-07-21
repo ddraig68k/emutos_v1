@@ -47,7 +47,6 @@ long check_read_byte(long);
 void duart_interrupt(void);
 #endif
 
-
 /* */
 LONG default_etv_critic(WORD err,WORD dev);
 void int_illegal(void);
